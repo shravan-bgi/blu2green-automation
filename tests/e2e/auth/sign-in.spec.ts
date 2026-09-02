@@ -25,8 +25,6 @@ test.describe('Verify a registered user should be able to sign in', () => {
             await expect(homePage.loginLink).toBeVisible();
 
             const opened = await homePage.openLogin();
-
-            // Sign-in is on another origin, not in the application.
             await expect(opened.tab).toHaveURL(/nibe\.businessgateways\.com/);
 
             return opened;
@@ -51,13 +49,9 @@ test.describe('Verify a registered user should be able to sign in', () => {
             hub.accessPlatform());
 
         await test.step('Check the dashboard is displayed', async () => {
-          // Asserted on the third tab, not the sign-in tab: the hub stays open.
           await expect(dashboardTab).toHaveURL(
             new RegExp(`${routes.dashboard}$`),
           );
-
-          // Content as well as URL: the SSO handoff redirects through
-          // /app/nibe-login, so a URL check alone can pass mid-render.
           await expect(dashboardPage.enterpriseAdministration).toBeVisible();
           await expect(dashboardPage.userOperationsHubLink).toBeVisible();
         });
