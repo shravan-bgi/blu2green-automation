@@ -60,8 +60,28 @@ export default defineConfig({
   },
 
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
-    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+    // Signs in once per run and saves the session the browser projects below
+    // reuse. No storageState of its own — it is the thing that produces one.
+    //
+    // `--grep` is applied to dependency projects too, so any filtered run has to
+    // keep @setup in its expression or this project matches nothing, no session
+    // is written, and every test runs signed out. See the npm scripts.
+    { name: 'setup', testMatch: /setup[\\/]auth\.setup\.ts/ },
+
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'], storageState: environment.storageState },
+      dependencies: ['setup'],
+    },
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'], storageState: environment.storageState },
+      dependencies: ['setup'],
+    },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'], storageState: environment.storageState },
+      dependencies: ['setup'],
+    },
   ],
 });

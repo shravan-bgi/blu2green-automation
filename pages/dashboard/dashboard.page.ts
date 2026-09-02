@@ -2,6 +2,7 @@ import type { Locator } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { routes } from '@config/endpoints';
 import { BasePage } from '@pages/base.page';
+import { UserOperationsHubPage } from '@pages/user-operations-hub/user-operations-hub.page';
 
 /**
  * The blu2green dashboard, where a successful sign-in ends.
@@ -32,34 +33,14 @@ export class DashboardPage extends BasePage {
     return this.page.getByRole('link', { name: /User Operations Hub/ });
   }
 
-  /** This getter returns the welcome dialog heading. */
-  // Located by the heading, not the container: `.welcome-dialog-container`
-  // measures 1200x0, so toBeVisible() fails on it while the dialog is on screen.
-  get welcomeHeading(): Locator {
-    return this.page.getByText('Welcome to b2g Framework', { exact: false });
-  }
+  /** This method opens the User Operations Hub and returns its landing page. */
+  async openUserOperationsHub(): Promise<UserOperationsHubPage> {
+    await this.userOperationsHubLink.click();
 
-  /** This getter returns the close button on the welcome dialog. */
-  private get welcomeCloseButton(): Locator {
-    return this.page
-      .locator('.welcome-dialog-container')
-      .getByRole('button', { name: '✕' });
-  }
+    const hub = new UserOperationsHubPage(this.page);
+    await hub.waitUntilReady();
 
-  /** This method closes the welcome dialog if it appears, and does nothing if it does not. */
-  // Dismissing it does not persist — `um_wlcmintro` is unchanged — so it can
-  // return on any arrival and cannot be cleared once in setup.
-  async dismissWelcomeDialog(timeout = 5_000): Promise<boolean> {
-    try {
-      await this.welcomeHeading.waitFor({ state: 'visible', timeout });
-    } catch {
-      return false;
-    }
-
-    await this.welcomeCloseButton.click();
-    await expect(this.welcomeHeading).toBeHidden({ timeout: 15_000 });
-
-    return true;
+    return hub;
   }
 
   /** This method waits until the dashboard has loaded and nothing is covering it. */
@@ -67,6 +48,6 @@ export class DashboardPage extends BasePage {
     await expect(this.page).toHaveURL(new RegExp(`${routes.dashboard}$`), {
       timeout: 60_000,
     });
-    await this.dismissWelcomeDialog();
+    await this.welcomeDialog.dismiss();
   }
 }

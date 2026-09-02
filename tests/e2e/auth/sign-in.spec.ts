@@ -4,6 +4,11 @@ import { routes } from '@config/endpoints';
 import { expect, test } from '@fixtures/test-fixtures';
 
 test.describe('Verify a registered user should be able to sign in', () => {
+  // Every browser project carries the session the setup project saved. This is
+  // the one suite that signs in for itself, so it has to start signed out —
+  // inheriting a session would leave it testing nothing.
+  test.use({ storageState: { cookies: [], origins: [] } });
+
   test.beforeEach(async () => {
     await allure.epic('Authentication');
     await allure.feature('Sign in');

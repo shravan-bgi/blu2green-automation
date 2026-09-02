@@ -21,6 +21,7 @@ data/         static fixture data and files/
 factories/    generated test data
 types/        shared types
 utils/        helpers belonging to no page object or fixture
+tests/setup/  project dependencies, not specs — currently auth.setup.ts
 tests/e2e/    UI specs
 tests/api/    API specs
 ```
@@ -99,6 +100,28 @@ Specs import `test` and `expect` from `@fixtures/test-fixtures`, **never** from
 them. The `db` pool is worker-scoped — a `globalTeardown` cannot see per-worker pools, so a
 test-scoped one would hang the run on open handles.
 
+### Authentication
+
+The `setup` project ([tests/setup/auth.setup.ts](tests/setup/auth.setup.ts)) signs in **once
+per run** and saves the session to `.auth/user.json`. Every browser project declares
+`dependencies: ['setup']` and `use.storageState`, so a spec is already signed in — no test
+logs in through the UI. The application keeps its session in `localStorage` and sets no
+cookies, so `storageState` carries all of it.
+
+[tests/e2e/auth/sign-in.spec.ts](tests/e2e/auth/sign-in.spec.ts) opts out with
+`test.use({ storageState: { cookies: [], origins: [] } })`, because it is the suite that
+signs in for itself.
+
+The setup spec carries a `@setup` tag, which is deliberately **not** one of the four axes —
+it is a project dependency, not a test. No `--grep` needs to mention it: a dependency project
+runs whatever the filter says, verified on Playwright 1.62 with `--grep @smoke`. Do not add
+`|@setup` to the npm scripts "to be safe"; it reads as though the filter were load-bearing
+when it is not.
+
+`.auth/user.json` is gitignored but survives between local runs, so a stale session can keep
+a broken setup step from showing up locally. Delete `.auth/` when changing anything about
+sign-in, so the next run proves the whole path.
+
 ## Tests
 
 Title format: `TC_<JOURNEY>_<NNN> | Verify <behaviour>`. The behaviour half is a sentence a
@@ -114,7 +137,7 @@ Four tag axes, and every test carries exactly one tag from each:
 | Axis | Tags |
 | --- | --- |
 | Suite | `@smoke`, `@regression` |
-| Scope | `@registration`, `@auth`, … one per feature |
+| Scope | `@registration`, `@auth`, `@user-operations-hub`, … one per feature |
 | Polarity | `@positive`, `@negative` |
 | Layer | `@ui`, `@api` |
 

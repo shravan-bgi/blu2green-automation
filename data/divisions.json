@@ -1,0 +1,20 @@
+{
+  "_note": "Static values for the division journeys. The description is deliberately one fixed sentence: nothing about the feature varies with it, and a generated one would only make two runs harder to diff.",
+
+  "defaults": {
+    "sector": "General",
+    "description": "Created by the blu2green automated regression suite to verify division management."
+  },
+
+  "seed": {
+    "_note": "The division every organization is created with. It carries a Default Division badge and an empty Action cell, which is what makes it the subject of the not-editable and not-deletable tests.",
+    "name": "Corporate Division",
+    "duplicateProbe": "corporate division"
+  },
+
+  "logo": {
+    "_note": "Already present in the b2g Drive on the demo environment, so the tests select it rather than uploading a copy. The folder really is capitalised. The drive truncates the displayed file name to 'division-logo.p...', so only the stem is matched.",
+    "folder": "User_management",
+    "file": "division-logo"
+  }
+}
