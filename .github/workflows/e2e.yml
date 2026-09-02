@@ -258,15 +258,19 @@ jobs:
           path: playwright-report/
           retention-days: 14
 
-  # GitHub's own email reaches only whoever triggered a run, and a nightly cron
-  # has no actor — so failures get an explicit address.
+  # Scheduled and manual runs only. GitHub's own notification already covers push
+  # and PR, and covers them better — but it goes to whoever triggered a run, and
+  # a cron has no trigger, so it falls back to whoever last edited this file.
+  # A daily readiness alert needs a deliberate recipient, not an incidental one.
   notify-failure:
     name: Email on failure
     # `quarantine` absent on purpose: non-blocking, so its failures are expected.
     needs: [static, smoke, full, cross-browser, report]
     # `contains` rather than `failure()`: most triggers skip tiers, and
     # `failure()` cannot tell skipped from failed.
-    if: ${{ always() && contains(needs.*.result, 'failure') }}
+    if: >-
+      ${{ always() && contains(needs.*.result, 'failure')
+      && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -291,8 +295,8 @@ jobs:
             Run       ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
             Trigger   ${{ github.event_name }}
-            Branch    ${{ github.ref_name }}
-            Commit    ${{ github.sha }}
+            Branch    ${{ github.head_ref || github.ref_name }}
+            Commit    ${{ github.event.pull_request.head.sha || github.sha }}
             Author    ${{ github.actor }}
 
             Job results
