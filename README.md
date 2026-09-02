@@ -74,3 +74,5 @@ nightly. Quarantined tests run everywhere and block nothing.
 See [CLAUDE.md](CLAUDE.md) — layout, comment rules, locator preference order, tagging, and
 the environment constraints that outrank generic advice. [.agents/qa-project-context.md](.agents/qa-project-context.md)
 records what the project is: stack, environments, quality goals and risk areas.
+
+<!-- CI path verification — this line is removed when the PR closes. -->
