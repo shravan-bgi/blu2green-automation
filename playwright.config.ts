@@ -15,7 +15,7 @@ const allureReporter: [string, Record<string, unknown>] = [
     suiteTitle: true,
     environmentInfo: {
       BaseURL: environment.baseURL,
-      Schema: environment.database.schema,
+      Schema: environment.databaseSchema || 'not configured',
       Node: process.version,
       CI: String(isCI),
     },

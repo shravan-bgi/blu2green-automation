@@ -50,7 +50,19 @@ export const environment = {
   // No accounts here — fixture-account values are test data and live in
   // data/auth.json. Only per-environment settings belong in this file.
 
-  database: {
+  /** The registration schema name, for reporting. Empty when unconfigured. */
+  databaseSchema: optional('DEMO_DB_NAME', ''),
+} as const;
+
+/**
+ * This function returns the database connection settings, and throws if any is
+ * missing.
+ */
+// Resolved when called, not at module load. Most tests never open a pool, and
+// requiring credentials up front stops the whole suite — including the specs
+// that touch no database — before Playwright can even read its config.
+export function databaseConfig() {
+  return {
     host: required('DEMO_DB_HOST'),
     port: Number(optional('DEMO_DB_PORT', '3306')),
     user: required('DEMO_DB_USER'),
@@ -59,5 +71,5 @@ export const environment = {
     schema: required('DEMO_DB_NAME'),
     /** Reference-data schema, needed to resolve classification names. */
     masterSchema: optional('DEMO_DB_MASTER_NAME', 'bgi_b2g_master_dev'),
-  },
-} as const;
+  };
+}
