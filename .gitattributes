@@ -1,0 +1,16 @@
+# Normalise line endings to LF in the repository and on checkout.
+#
+# CI runs on ubuntu-latest while development happens on Windows. Without this,
+# every file committed from Windows shows as wholly rewritten in the next diff
+# taken on Linux, and shell steps in the workflow can fail on a stray \r.
+* text=auto eol=lf
+
+# Generated, and noisy in review. Collapsed rather than diffed line by line.
+package-lock.json -diff linguist-generated
+
+# Binary assets, so git never tries to merge or convert them.
+*.png binary
+*.jpg binary
+*.pdf binary
+*.webm binary
+*.zip binary

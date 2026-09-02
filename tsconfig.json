@@ -1,0 +1,55 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"],
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // Imports left behind by a refactor are otherwise invisible: nothing fails,
+    // and the file keeps claiming a dependency it no longer has.
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+
+    // One alias per top-level directory, so moving a file between folders never
+    // touches a relative path.
+    "paths": {
+      "@api/*": ["./api/*"],
+      "@config/*": ["./config/*"],
+      "@data/*": ["./data/*"],
+      "@db/*": ["./db/*"],
+      "@factories/*": ["./factories/*"],
+      "@fixtures/*": ["./fixtures/*"],
+      "@pages/*": ["./pages/*"],
+      "@typings/*": ["./types/*"],
+      "@utils/*": ["./utils/*"]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    // Fixture data is imported as modules, so it has to be part of the program
+    // for `resolveJsonModule` to type it. Scoped to data/ deliberately: a bare
+    // "**/*.json" would pull package-lock.json into the program.
+    "data/**/*.json"
+  ],
+  "exclude": [
+    "node_modules",
+    "test-results",
+    "playwright-report",
+    "blob-report",
+    "allure-report",
+    "allure-results",
+    ".allure"
+  ]
+}

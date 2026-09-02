@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "skills": {
+    "ai-qa-review": {
+      "source": "petrkindlmann/qa-skills",
+      "sourceType": "github",
+      "skillPath": "skills/ai-qa-review/SKILL.md",
+      "computedHash": "d84ba6e24bd695303d4976bc0fefbd351a9273573acb2c732611f0e38f6a0a8b"
+    },
+    "api-testing": {
+      "source": "petrkindlmann/qa-skills",
+      "sourceType": "github",
+      "skillPath": "skills/api-testing/SKILL.md",
+      "computedHash": "fbb05472fe7f84a293a420da105617dd8cd85aea236729c8c206894a68b1e1d9"
+    },
+    "ci-cd-integration": {
+      "source": "petrkindlmann/qa-skills",
+      "sourceType": "github",
+      "skillPath": "skills/ci-cd-integration/SKILL.md",
+      "computedHash": "f3d3bc02b1ff0bed0984c070fc2e630def8e2293f304e74592dcd9f464a50b65"
+    },
+    "playwright-automation": {
+      "source": "petrkindlmann/qa-skills",
+      "sourceType": "github",
+      "skillPath": "skills/playwright-automation/SKILL.md",
+      "computedHash": "0eb62e8c9d03ff836bc96e38ea767a8343ad0487ab8003939aebec1a91f92785"
+    },
+    "playwright-best-practices": {
+      "source": "currents-dev/playwright-best-practices-skill",
+      "sourceType": "github",
+      "skillPath": "playwright-best-practices/SKILL.md",
+      "computedHash": "88623575c97314e115f0e361a7d942e31d3b7a4e8925832257e1ad33f52096e4"
+    },
+    "playwright-cli": {
+      "source": "microsoft/playwright-cli",
+      "sourceType": "github",
+      "skillPath": "skills/playwright-cli/SKILL.md",
+      "computedHash": "438b922468b7bb2ab5ce4a0f318fc65db93337f0df03908a5476effbae9487e6"
+    },
+    "qa-dashboard": {
+      "source": "petrkindlmann/qa-skills",
+      "sourceType": "github",
+      "skillPath": "skills/qa-dashboard/SKILL.md",
+      "computedHash": "45f6deb36e0fa282ba69fd6f81fec241f1b90bdecb17ebc800886fda199191e9"
+    },
+    "qa-project-context": {
+      "source": "petrkindlmann/qa-skills",
+      "sourceType": "github",
+      "skillPath": "skills/qa-project-context/SKILL.md",
+      "computedHash": "681cdbd9d5a41f84c9110e71b8017f981e11c4844a190e32f3a4c694a2be55c5"
+    },
+    "test-data-management": {
+      "source": "petrkindlmann/qa-skills",
+      "sourceType": "github",
+      "skillPath": "skills/test-data-management/SKILL.md",
+      "computedHash": "e0414a94d4ef4d6697fba51f7ecab92d3cb61a5195b00c8aff9ec5ff96676c11"
+    }
+  }
+}

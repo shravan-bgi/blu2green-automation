@@ -1,0 +1,5 @@
+Placeholder so the folder survives in git.
+
+Home for the HTTP clients the API tests in tests/api/ will drive — request
+builders and typed responses, not assertions. Nothing lives here yet; the auth
+endpoints the suite already waits on are listed in src/config/endpoints.ts.

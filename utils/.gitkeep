@@ -1,0 +1,6 @@
+Placeholder so the folder survives in git.
+
+Home for helpers that belong to no single page object or fixture. Empty on
+purpose — anything shared so far has had a better home: page behaviour in
+src/pages/base.page.ts, test data in src/factories/, environment reading in
+src/config/environment.ts.

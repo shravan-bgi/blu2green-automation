@@ -1,0 +1,32 @@
+
+# Allure 3 — results, generated report, and the trend history it accumulates
+/allure-results/
+/allure-report/
+/.allure/
+
+# Playwright
+node_modules/
+/.auth/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+
+# Secrets - never commit. .env.example is the tracked template.
+.env
+.env.*
+!.env.example
+
+# Vendored third-party skill docs. Restore with `npx skills experimental_install`,
+# which reads the pinned sources and hashes from skills-lock.json.
+.claude/skills/
+
+# Exploration artifacts from the Playwright CLI and MCP server (page snapshots,
+# console and network logs). Written per session and never worth committing.
+.playwright-cli/
+.playwright-mcp/
+
+# Scaffolding the Playwright MCP planner writes on every setup_page call. Not
+# ours, recreated whenever the planner runs, and never worth committing.
+tests/seed.spec.ts
