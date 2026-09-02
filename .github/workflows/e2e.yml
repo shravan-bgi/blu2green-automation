@@ -358,21 +358,26 @@ jobs:
             [ "$r" = "failure" ] && JOBS_FAILED=$((JOBS_FAILED + 1))
           done
 
-          # Three different stories, and conflating them misleads. Counts exist
-          # only if the report job finished — if it was cancelled or skipped,
-          # tests may well have run and failed, so claiming "no tests ran" would
-          # be wrong rather than merely vague.
+          # One fixed shape, whatever went wrong. A predictable subject is what
+          # inbox rules and sorting depend on, and at 33 characters it survives a
+          # phone preview with the status word still visible. ASCII only: subject
+          # headers are MIME-encoded and older clients render a stray middle dot
+          # as a question mark.
+          SUBJECT="[blu2green] Commit ${COMMIT:0:7} Failed"
+
+          # Which kind of failure it was lives in the headline instead. Three
+          # different stories, and conflating them misleads: counts exist only
+          # once the report job finishes, so if it was cancelled tests may well
+          # have run and failed, and "no tests ran" would be wrong rather than
+          # merely vague.
           if [ "$R_REPORT" != "success" ]; then
             HEADLINE="Test results unavailable"
-            SUBJECT="[blu2green CI] E2E failed on $BRANCH - results unavailable"
             SUMMARY="The reporting step did not finish, so per-test counts could not be collected. Open the run to see what happened."
           elif [ "$T_TOTAL" -eq 0 ]; then
             HEADLINE="No tests ran"
-            SUBJECT="[blu2green CI] E2E failed on $BRANCH - no tests ran"
             SUMMARY="The suite failed before running anything &mdash; usually a config, dependency or environment fault rather than a broken test."
           else
             HEADLINE="$T_FAILED of $T_TOTAL tests failed"
-            SUBJECT="[blu2green CI] E2E failed on $BRANCH - $T_FAILED of $T_TOTAL tests"
             SUMMARY="<span style=\"color:#b3261e;font-weight:bold\">$T_FAILED failed</span> &nbsp;&middot;&nbsp; $T_PASSED passed &nbsp;&middot;&nbsp; $T_FLAKY flaky &nbsp;&middot;&nbsp; $T_SKIPPED skipped &nbsp;&middot;&nbsp; $T_DURATION"
           fi
 
