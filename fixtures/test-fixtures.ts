@@ -1,5 +1,6 @@
 import { test as base, expect } from '@playwright/test';
 import { createPool, type Pool } from '@db/client';
+import { HomePage } from '@pages/public/home.page';
 
 /**
  * The suite's own `test`. Specs import `test` and `expect` from here, never from
@@ -12,10 +13,13 @@ type WorkerFixtures = {
   db: Pool;
 };
 
-/** Test-scoped fixtures. Empty until the first page object lands. */
-// `{}` not `Record<string, never>`, whose index signature would reject the
-// worker fixtures.
-type TestFixtures = {};
+type TestFixtures = {
+  /** The public home page, and the entry point to Register and Login. */
+  homePage: HomePage;
+};
+
+// No `identityLoginPage` fixture: the identity layer 404s on direct navigation,
+// so its page object comes from `homePage.openLogin()`.
 
 /** This object is the suite's extended `test`, carrying every fixture below. */
 export const test = base.extend<TestFixtures, WorkerFixtures>({
@@ -30,6 +34,11 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     },
     { scope: 'worker' },
   ],
+
+  /** This fixture provides the public home page. */
+  homePage: async ({ page }, use) => {
+    await use(new HomePage(page));
+  },
 });
 
 export { expect };
