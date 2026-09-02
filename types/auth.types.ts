@@ -14,9 +14,10 @@ export type AuthAccount = {
 // Derived from AuthAccount, so a key that does not exist fails to compile.
 export type IdentifierKey = keyof Omit<AuthAccount, 'password'>;
 
-/** One row of the sign-in identifier table in data/auth.json. */
-export type IdentifierCase = {
-  id: string;
+/** One row of the sign-in case table in data/sign-in.json. */
+// No `id` field: the key it is stored under is the test ID.
+export type SignInCase = {
+  title: string;
   label: string;
   identifierKey: IdentifierKey;
   tag: string[];

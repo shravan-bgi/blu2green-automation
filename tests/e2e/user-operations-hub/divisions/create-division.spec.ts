@@ -1,0 +1,211 @@
+import * as allure from 'allure-js-commons';
+import { divisionCases } from '@config/division-cases';
+import divisionData from '@data/divisions.json';
+import { expect, test } from '@fixtures/test-fixtures';
+import type { DivisionsPage } from '@pages/user-operations-hub/divisions/divisions.page';
+import type { DivisionDropdownForm } from '@typings/division.types';
+import { distinctCounts } from '@utils/counters';
+
+test.describe('Verify an administrator should be able to add a division to the organization', () => {
+  test.beforeEach(async () => {
+    await allure.epic('User Operations Hub');
+    await allure.feature('Divisions');
+    await allure.story('Add a division');
+  });
+
+  test(
+    divisionCases.TC_DIV_CREATE_001.title,
+    { tag: divisionCases.TC_DIV_CREATE_001.tag },
+    async ({ dashboardPage, userOperationsHubPage, division }) => {
+      await allure.severity(divisionCases.TC_DIV_CREATE_001.severity);
+      await allure.parameter('Division name', division.name);
+
+      const divisionsPage =
+        await test.step('Open the division list from the dashboard', async () => {
+          await dashboardPage.goto();
+
+          const hub = await dashboardPage.openUserOperationsHub();
+          await expect(hub.divisionsMetric).toBeVisible();
+
+          return hub.openDivisions();
+        });
+
+      await test.step('Add a division with only the mandatory details', async () => {
+        const form = await divisionsPage.openAddDivision();
+
+        await form.fillDetails(division);
+        await expect(form.addButton).toBeEnabled();
+        await form.submit();
+
+        await expect(divisionsPage.dialogBody).toContainText(
+          `${division.name} division has been added successfully.`,
+        );
+        await divisionsPage.dismissDialog();
+      });
+
+      await test.step('Check the division is listed with a system-generated ID', async () => {
+        await divisionsPage.search(division.name);
+
+        await expect(divisionsPage.divisionRow(division.name)).toBeVisible();
+
+        // Padded on both sides in the markup, and anchored anyway: the cell
+        // holds the generated ID and nothing else, which is the point.
+        await expect(divisionsPage.divisionId(division.name)).toHaveText(
+          /^\s*DIV-\d+-\d+\s*$/,
+        );
+      });
+
+      await test.step('Check the row offers Edit and Delete', async () => {
+        await divisionsPage.openRowActions(division.name);
+
+        await expect(divisionsPage.editOption).toBeVisible();
+        await expect(divisionsPage.deleteOption).toBeVisible();
+      });
+
+      await test.step('Check the metric card, the tile, the chip and the table agree on how many divisions exist', async () => {
+        await expect
+          .poll(
+            async () =>
+              distinctCounts(await userOperationsHubPage.readDivisionCounts()),
+            {
+              message:
+                'The Divisions metric card, the Total Divisions tile, the summary chip and the table should all report the same number of divisions',
+              timeout: 120_000,
+              intervals: [1_000, 3_000, 5_000],
+            },
+          )
+          .toHaveLength(1);
+      });
+    },
+  );
+
+  test(
+    divisionCases.TC_DIV_CREATE_002.title,
+    { tag: divisionCases.TC_DIV_CREATE_002.tag },
+    async ({ divisionsPage, division }) => {
+      await allure.severity(divisionCases.TC_DIV_CREATE_002.severity);
+      await allure.parameter('Division name', division.name);
+      await allure.parameter(
+        'Drive file',
+        `${divisionData.logo.folder}/${divisionData.logo.file}`,
+      );
+
+      const form = await test.step('Open the Add Division form', async () => {
+        await divisionsPage.goto();
+
+        return divisionsPage.openAddDivision();
+      });
+
+      await test.step('Fill the division details', async () => {
+        await form.fillDetails(division);
+      });
+
+      await test.step('Attach the division logo from the b2g Drive', async () => {
+        await form.attachImageFromDrive(
+          divisionData.logo.folder,
+          divisionData.logo.file,
+        );
+      });
+
+      await test.step('Add the division', async () => {
+        await expect(form.addButton).toBeEnabled();
+        await form.submit();
+
+        await expect(divisionsPage.dialogBody).toContainText(
+          `${division.name} division has been added successfully.`,
+        );
+        await divisionsPage.dismissDialog();
+      });
+
+      await test.step('Check the division is listed', async () => {
+        await divisionsPage.search(division.name);
+
+        await expect(divisionsPage.divisionRow(division.name)).toBeVisible();
+      });
+    },
+  );
+
+  test(
+    divisionCases.TC_DIV_CREATE_003.title,
+    { tag: divisionCases.TC_DIV_CREATE_003.tag },
+    async ({ divisionsPage, division }) => {
+      await allure.severity(divisionCases.TC_DIV_CREATE_003.severity);
+      await allure.parameter(
+        'Existing division name',
+        divisionData.seed.duplicateProbe,
+      );
+
+      const form = await test.step('Open the Add Division form', async () => {
+        await divisionsPage.goto();
+
+        return divisionsPage.openAddDivision();
+      });
+
+      await test.step('Submit the name of a division that already exists', async () => {
+        await form.fillDetails({
+          ...division,
+          name: divisionData.seed.duplicateProbe,
+        });
+        await form.submit();
+      });
+
+      await test.step('Check the duplicate is refused', async () => {
+        await expect(divisionsPage.dialog).toBeVisible();
+        await expect(divisionsPage.dialogBody).toContainText(/already exist/i);
+        await divisionsPage.dismissDialog();
+      });
+
+      await test.step('Check no second division carries that name', async () => {
+        await divisionsPage.goto();
+        await divisionsPage.search(divisionData.seed.name);
+        await expect(
+          divisionsPage.rowsNamed(divisionData.seed.name),
+        ).toHaveCount(1);
+      });
+    },
+  );
+
+  for (const testCase of [
+    {
+      ...divisionCases.TC_DIV_CREATE_004,
+      form: 'Add Department',
+      open: async (
+        divisionsPage: DivisionsPage,
+      ): Promise<DivisionDropdownForm> =>
+        (await divisionsPage.openDepartments()).openAddDepartment(),
+    },
+    {
+      ...divisionCases.TC_DIV_CREATE_005,
+      form: 'Add User',
+      open: async (
+        divisionsPage: DivisionsPage,
+      ): Promise<DivisionDropdownForm> =>
+        (await divisionsPage.openUsers()).openAddUser(),
+    },
+  ]) {
+    test(
+      testCase.title,
+      { tag: testCase.tag },
+      async ({ divisionsPage, division }) => {
+        await allure.severity(testCase.severity);
+        await allure.parameter('Division name', division.name);
+        await allure.parameter('Form', testCase.form);
+
+        await test.step('Add a division', async () => {
+          await divisionsPage.goto();
+          await divisionsPage.createDivision(division);
+        });
+
+        await test.step(`Check the division is offered on the ${testCase.form} form`, async () => {
+          const form = await testCase.open(divisionsPage);
+
+          await form.openDivisionDropdown();
+
+          await expect(
+            form.divisionOptions.filter({ hasText: division.name }),
+          ).toHaveCount(1);
+        });
+      },
+    );
+  }
+});

@@ -1,4 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
+import { WelcomeDialogComponent } from '@pages/components/welcome-dialog.component';
 
 /**
  * The contract every page object honours: it knows its own route and how to
@@ -21,6 +22,16 @@ export abstract class BasePage {
 
   /** This method waits until the page is ready. It does nothing by default. */
   async waitUntilReady(): Promise<void> {}
+
+  /** This getter returns the welcome dialog, which can cover any page on arrival. */
+  // Here rather than on each page: dismissing it does not persist, so it can land
+  // on any arrival at the application and every page has to cope with it. A
+  // getter, not a field, because a field initialiser would read `page` before the
+  // constructor assigns it; the component is a stateless wrapper, so building one
+  // per call costs nothing.
+  get welcomeDialog(): WelcomeDialogComponent {
+    return new WelcomeDialogComponent(this.page);
+  }
 
   /** This method returns a red error message matching the given text. */
   // Field-level and form-level messages use different markup, and which one the

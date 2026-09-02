@@ -14,7 +14,7 @@ npm test
 ```
 
 `.env` holds per-environment settings only — the base URL and database connection. Fixture
-account values are test data and live in [data/auth.json](data/auth.json).
+account values are test data and live in [data/sign-in.json](data/sign-in.json).
 
 ## Commands
 
@@ -38,7 +38,7 @@ Both `typecheck` and `lint` must pass before anything is committed.
 ```
 pages/        page objects; components/ holds widgets belonging to no one page
 fixtures/     test-fixtures.ts — the suite's own `test` and `expect`
-config/       environment.ts, endpoints.ts, auth-cases.ts
+config/       environment.ts, endpoints.ts, sign-in-cases.ts
 db/           MySQL client and per-feature query modules
 api/          HTTP clients for the API layer
 data/         static test data

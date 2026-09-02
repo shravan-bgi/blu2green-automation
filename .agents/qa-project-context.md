@@ -25,6 +25,8 @@ Key user journeys, in priority order:
    September 2026; the new flow has not been automated yet.**
 5. A user resets a forgotten password, or a forgotten PIN, by emailed OTP.
 6. An administrator adds a division and attaches a logo through the b2g Drive file picker.
+   **Automated — `TC_DIV_CREATE_001`–`005`.** Editing and deleting a division are the next
+   two passes and are not covered yet.
 7. Duplicate details are refused at registration — organization name, mobile and commercial
    number per country, business email globally.
 
@@ -51,9 +53,19 @@ This repository:
 
 - **Framework:** Playwright 1.62.1 (`@playwright/test`)
 - **Config:** `playwright.config.ts`
-- **Test directory:** `tests/e2e/`
-- **Current state:** two tests, both covering the sign-in journey — `TC_LOGIN_001` (email
-  identifier) and `TC_LOGIN_002` (mobile identifier), driven from `data/auth.json`.
+- **Test directory:** `tests/e2e/`, plus `tests/setup/` for the sign-in-once `setup` project
+- **Current state:** seven tests over two journeys.
+  - Sign in — `TC_LOGIN_001` (email identifier) and `TC_LOGIN_002` (mobile identifier),
+    driven from `data/sign-in.json`. The only specs that sign in through the UI.
+  - Add a division — `TC_DIV_CREATE_001`–`005`, covering the mandatory-fields path, a logo
+    attached from the b2g Drive, the duplicate-name refusal, and propagation into the Add
+    Department and Add User division dropdowns.
+- **Authentication:** a `setup` project signs in once per run and saves `storageState`; every
+  browser project depends on it, and dependency projects run regardless of `--grep`.
+- **Counting assertions:** the division counters are asserted for *agreement* (metric card =
+  tile = chip = table), never as a `+1` delta. The environment is shared and the suite is
+  fully parallel, so a delta races every other worker; agreement holds regardless and is what
+  a drifting counter actually breaks.
 
 ### API
 
@@ -109,7 +121,7 @@ it is non-blocking, and a quarantined test failing is expected rather than news.
 notification. Repository variable: `DEMO_BASE_URL`.
 
 **No login credentials in CI.** The fixture account is test data — its password is the static
-one every test account on the demo environment carries — so it lives in `data/auth.json` and
+one every test account on the demo environment carries — so it lives in `data/sign-in.json` and
 needs no secret. When the automation credential pack supplies a dedicated account, the values
 change in that file and nothing in the pipeline moves.
 
@@ -158,6 +170,7 @@ Unit coverage: not applicable — no application code lives here.
 | Enterprise classification and SMEDA certificate | **Important** | Entitlement claimed without evidence | The classification decides an entitlement and is invisible on screen after submission — only readable from the database. The certificate is prompted for but **not enforced** in the form or at the server. |
 | Registration for international organizations | **Important** | Silent mis-filing of foreign suppliers | A different form and a different payload, not the same request with a different dropdown. Oman coverage proves nothing about it. |
 | Shared-environment data accumulation | **Monitor** | Slow degradation of the environment | Low severity, high likelihood. Every run adds registrations and two credential-history rows that nothing prunes; one account already carries 97. |
+| Division accumulation on the shared tenant | **Monitor** | Slower forms, then a slower suite | Four of the five create tests leave a division behind, all `auto_`-prefixed, and there is no teardown by design — a delete-based one would use the very feature Scenario 3 tests and would shift the counters other tests are polling. The Add Department and Add User division dropdowns are where this bites first: at several hundred options they will slow, and `TC_DIV_CREATE_004`/`005` are the tests that will notice. Reclaiming them needs a database-side job matching `auto_%`. |
 
 ## Team
 
@@ -182,7 +195,7 @@ Full detail in [CLAUDE.md](../CLAUDE.md). The two things downstream skills need:
 - **Test data strategy:** generated per test by a factory, with a per-run stamp plus a counter
   for uniqueness — the values feed the very uniqueness rules under test, so a collision would
   read as a product bug. Long-lived fixture accounts for anything that must already exist,
-  never created by a test. Fixture-account values are test data and live in `data/auth.json`,
+  never created by a test. Fixture-account values are test data and live in `data/sign-in.json`,
   not `.env` — only genuinely per-environment settings belong there. No seeding, no
   truncation, no rollback: the database forbids `DELETE`.
 
