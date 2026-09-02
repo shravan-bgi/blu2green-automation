@@ -274,6 +274,89 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # Built in shell rather than inline in `with:` — one row function beats the
+      # same status conditional written out five times, and the same generator
+      # serves a success email if one is ever added.
+      #
+      # Tables and inline styles are not stylistic. This mail is read in Windows
+      # Live Mail, which renders through the Word engine: no flexbox, no grid,
+      # <style> blocks stripped, images blocked. Anything cleverer degrades to
+      # worse than plain text.
+      - name: Build the email body
+        id: mail
+        env:
+          # Passed through env, never interpolated into the script, so nothing
+          # from the run context reaches the shell directly.
+          R_STATIC: ${{ needs.static.result }}
+          R_SMOKE: ${{ needs.smoke.result }}
+          R_FULL: ${{ needs.full.result }}
+          R_CROSS: ${{ needs['cross-browser'].result }}
+          R_REPORT: ${{ needs.report.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+          COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+          TRIGGER: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+
+          FAILED=0
+          for r in "$R_STATIC" "$R_SMOKE" "$R_FULL" "$R_CROSS" "$R_REPORT"; do
+            [ "$r" = "failure" ] && FAILED=$((FAILED + 1))
+          done
+
+          row() {
+            case "$2" in
+              success)   glyph="&#10003;"; colour="#1e6f3c"; label="passed" ;;
+              failure)   glyph="&#10007;"; colour="#b3261e"; label="FAILED" ;;
+              cancelled) glyph="&#9210;";  colour="#8a6d00"; label="cancelled" ;;
+              *)         glyph="&#8211;";  colour="#9aa0a6"; label="not run" ;;
+            esac
+            printf '<tr><td style="padding:9px 20px;border-top:1px solid #ececec;font-family:Arial,sans-serif;font-size:14px;color:#202124">%s</td><td align="right" style="padding:9px 20px;border-top:1px solid #ececec;font-family:Arial,sans-serif;font-size:14px;color:%s;white-space:nowrap">%s&nbsp;%s</td></tr>' "$1" "$colour" "$glyph" "$label"
+          }
+
+          {
+            echo 'html<<HTML_BODY_EOF'
+            cat <<HTML
+          <table width="100%" cellpadding="0" cellspacing="0" bgcolor="#f4f4f5"><tr><td align="center" style="padding:24px 12px">
+          <table width="600" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="border:1px solid #e0e0e0">
+
+          <tr><td bgcolor="#b3261e" style="padding:18px 20px;font-family:Arial,sans-serif;font-size:19px;font-weight:bold;color:#ffffff">
+          &#10007;&nbsp; E2E suite failed
+          </td></tr>
+
+          <tr><td style="padding:16px 20px 2px;font-family:Arial,sans-serif;font-size:14px;color:#5f6368">
+          <b style="color:#202124">$FAILED</b> of 5 jobs failed on <b style="color:#202124">$BRANCH</b> &middot; $TRIGGER
+          </td></tr>
+
+          <tr><td style="padding:16px 20px 18px">
+          <table cellpadding="0" cellspacing="0"><tr><td bgcolor="#1a73e8" style="padding:11px 22px">
+          <a href="$RUN_URL" style="font-family:Arial,sans-serif;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none">View the run &rarr;</a>
+          </td></tr></table>
+          </td></tr>
+
+          <tr><td style="padding:0 0 4px">
+          <table width="100%" cellpadding="0" cellspacing="0">
+          $(row "Typecheck and lint" "$R_STATIC")
+          $(row "Smoke" "$R_SMOKE")
+          $(row "Full suite" "$R_FULL")
+          $(row "Cross-browser" "$R_CROSS")
+          $(row "Merge reports" "$R_REPORT")
+          </table>
+          </td></tr>
+
+          <tr><td style="padding:16px 20px;border-top:1px solid #ececec;font-family:Arial,sans-serif;font-size:13px;line-height:20px;color:#5f6368">
+          Commit <span style="font-family:Consolas,monospace;color:#202124">${COMMIT:0:12}</span> by $ACTOR<br>
+          Traces, screenshots, video and the Allure report are attached to the run as artifacts.<br>
+          <span style="color:#9aa0a6">&#8211;&nbsp;not run is normal: each trigger runs only its own tier.</span>
+          </td></tr>
+
+          </table></td></tr></table>
+          HTML
+            echo 'HTML_BODY_EOF'
+            echo "failed=$FAILED"
+          } >> "$GITHUB_OUTPUT"
+
       # Skipped until the SMTP secrets exist. `secrets` is unavailable in a
       # job-level `if`, hence env.
       - name: Send the failure email
@@ -288,24 +371,23 @@ jobs:
           from: blu2green CI <${{ secrets.MAIL_USERNAME }}>
           to: shravan@businessgateways.com
           subject: >-
-            [blu2green E2E] ${{ github.event_name }} run failed on ${{ github.ref_name }}
+            [blu2green] E2E FAILED on ${{ github.head_ref || github.ref_name }} —
+            ${{ steps.mail.outputs.failed }} of 5 jobs
+          html_body: ${{ steps.mail.outputs.html }}
+          # Plain-text alternative, for clients that refuse HTML outright.
           body: |
-            The E2E suite failed.
+            E2E suite FAILED — ${{ steps.mail.outputs.failed }} of 5 jobs.
 
-            Run       ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            Run     ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-            Trigger   ${{ github.event_name }}
-            Branch    ${{ github.head_ref || github.ref_name }}
-            Commit    ${{ github.event.pull_request.head.sha || github.sha }}
-            Author    ${{ github.actor }}
+            Branch  ${{ github.head_ref || github.ref_name }}
+            Commit  ${{ github.event.pull_request.head.sha || github.sha }}
+            Trigger ${{ github.event_name }} by ${{ github.actor }}
 
-            Job results
-              Typecheck and lint   ${{ needs.static.result }}
-              Smoke                ${{ needs.smoke.result }}
-              Full suite           ${{ needs.full.result }}
-              Cross-browser        ${{ needs['cross-browser'].result }}
-              Merge reports        ${{ needs.report.result }}
+            Typecheck and lint   ${{ needs.static.result }}
+            Smoke                ${{ needs.smoke.result }}
+            Full suite           ${{ needs.full.result }}
+            Cross-browser        ${{ needs['cross-browser'].result }}
+            Merge reports        ${{ needs.report.result }}
 
-            Traces, screenshots, videos and the Allure report are attached to the
-            run above as artifacts. "skipped" is normal — each trigger runs only
-            its own tier.
+            Traces, video and the Allure report are attached to the run.
