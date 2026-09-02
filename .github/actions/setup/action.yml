@@ -1,0 +1,41 @@
+name: Setup
+description: Installs Node, project dependencies and cached Playwright browsers.
+
+inputs:
+  browsers:
+    description: Space-separated browsers to install, e.g. "chromium" or "firefox webkit".
+    required: false
+    default: chromium
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v6
+      with:
+        node-version: 22
+        cache: npm
+
+    - name: Install dependencies
+      run: npm ci
+      shell: bash
+
+    # Keyed on the browser set too, or the chromium cache would satisfy the
+    # cross-browser job and firefox/webkit would never be downloaded.
+    - name: Cache Playwright browsers
+      id: pw-cache
+      uses: actions/cache@v5
+      with:
+        path: ~/.cache/ms-playwright
+        key: pw-${{ runner.os }}-${{ inputs.browsers }}-${{ hashFiles('package-lock.json') }}
+
+    - name: Install Playwright browsers
+      if: steps.pw-cache.outputs.cache-hit != 'true'
+      run: npx playwright install --with-deps ${{ inputs.browsers }}
+      shell: bash
+
+    # The cache restores browser binaries but not the apt packages they link
+    # against.
+    - name: Install system dependencies
+      if: steps.pw-cache.outputs.cache-hit == 'true'
+      run: npx playwright install-deps ${{ inputs.browsers }}
+      shell: bash
