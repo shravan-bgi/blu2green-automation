@@ -197,6 +197,7 @@ jobs:
       flaky: ${{ steps.counts.outputs.flaky }}
       skipped: ${{ steps.counts.outputs.skipped }}
       total: ${{ steps.counts.outputs.total }}
+      duration: ${{ steps.counts.outputs.duration }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -228,11 +229,17 @@ jobs:
         continue-on-error: true
         run: |
           set -uo pipefail
-          P=0; F=0; K=0; S=0
+          P=0; F=0; K=0; S=0; MS=0
           if [ -f merged-report.json ]; then
-            read -r P F K S < <(jq -r \
-              '[.stats.expected, .stats.unexpected, .stats.flaky, .stats.skipped] | @tsv' \
-              merged-report.json)
+            read -r P F K S MS < <(jq -r \
+              '[.stats.expected, .stats.unexpected, .stats.flaky, .stats.skipped,
+                (.stats.duration // 0 | floor)] | @tsv' merged-report.json)
+          fi
+          SECS=$((MS / 1000))
+          if [ "$SECS" -ge 60 ]; then
+            HUMAN="$((SECS / 60))m $((SECS % 60))s"
+          else
+            HUMAN="${SECS}s"
           fi
           {
             echo "passed=$P"
@@ -240,8 +247,9 @@ jobs:
             echo "flaky=$K"
             echo "skipped=$S"
             echo "total=$((P + F + K + S))"
+            echo "duration=$HUMAN"
           } >> "$GITHUB_OUTPUT"
-          echo "Merged totals: $P passed, $F failed, $K flaky, $S skipped"
+          echo "Merged totals: $P passed, $F failed, $K flaky, $S skipped in $HUMAN"
 
       - name: Download Allure results
         uses: actions/download-artifact@v7
@@ -307,8 +315,7 @@ jobs:
     timeout-minutes: 5
     steps:
       # Built in shell rather than inline in `with:` — one row function beats the
-      # same status conditional written out five times, and the same generator
-      # serves a success email if one is ever added.
+      # same status conditional written out five times.
       #
       # Tables and inline styles are not stylistic. This mail is read in Windows
       # Live Mail, which renders through the Word engine: no flexbox, no grid,
@@ -325,6 +332,9 @@ jobs:
           R_CROSS: ${{ needs['cross-browser'].result }}
           R_REPORT: ${{ needs.report.result }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+          REPO: ${{ github.repository }}
+          RUN_NUMBER: ${{ github.run_number }}
           BRANCH: ${{ github.head_ref || github.ref_name }}
           COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
           TRIGGER: ${{ github.event_name }}
@@ -334,68 +344,87 @@ jobs:
           T_FLAKY: ${{ needs.report.outputs.flaky }}
           T_SKIPPED: ${{ needs.report.outputs.skipped }}
           T_TOTAL: ${{ needs.report.outputs.total }}
+          T_DURATION: ${{ needs.report.outputs.duration }}
         run: |
           set -euo pipefail
 
-          # Empty when the report job was skipped or its count step failed.
+          # Empty whenever the report job did not finish.
           T_PASSED=${T_PASSED:-0}; T_FAILED=${T_FAILED:-0}
           T_FLAKY=${T_FLAKY:-0};   T_SKIPPED=${T_SKIPPED:-0}
-          T_TOTAL=${T_TOTAL:-0}
+          T_TOTAL=${T_TOTAL:-0};   T_DURATION=${T_DURATION:-unknown}
 
-          FAILED=0
+          JOBS_FAILED=0
           for r in "$R_STATIC" "$R_SMOKE" "$R_FULL" "$R_CROSS" "$R_REPORT"; do
-            [ "$r" = "failure" ] && FAILED=$((FAILED + 1))
+            [ "$r" = "failure" ] && JOBS_FAILED=$((JOBS_FAILED + 1))
           done
 
-          # Zero tests is a different failure from failing tests: the suite died
-          # before running anything — a config, install or environment problem.
-          # The subject says which, because that decides who looks at it.
-          if [ "$T_TOTAL" -eq 0 ]; then
+          # One fixed shape, whatever went wrong. A predictable subject is what
+          # inbox rules and sorting depend on, and at 33 characters it survives a
+          # phone preview with the status word still visible. ASCII only: subject
+          # headers are MIME-encoded and older clients render a stray middle dot
+          # as a question mark.
+          SUBJECT="[blu2green] Commit ${COMMIT:0:7} Failed"
+
+          # Which kind of failure it was lives in the headline instead. Three
+          # different stories, and conflating them misleads: counts exist only
+          # once the report job finishes, so if it was cancelled tests may well
+          # have run and failed, and "no tests ran" would be wrong rather than
+          # merely vague.
+          if [ "$R_REPORT" != "success" ]; then
+            HEADLINE="Test results unavailable"
+            SUMMARY="The reporting step did not finish, so per-test counts could not be collected. Open the run to see what happened."
+          elif [ "$T_TOTAL" -eq 0 ]; then
             HEADLINE="No tests ran"
-            SUBJECT="[blu2green] E2E FAILED on $BRANCH — no tests ran"
-            SUMMARY="The suite failed before running anything. Usually a config, dependency or environment problem rather than a broken test."
+            SUMMARY="The suite failed before running anything &mdash; usually a config, dependency or environment fault rather than a broken test."
           else
             HEADLINE="$T_FAILED of $T_TOTAL tests failed"
-            SUBJECT="[blu2green] E2E FAILED on $BRANCH — $T_FAILED of $T_TOTAL tests"
-            SUMMARY="<b style=\"color:#b3261e\">$T_FAILED failed</b> &middot; $T_PASSED passed &middot; $T_FLAKY flaky &middot; $T_SKIPPED skipped"
+            SUMMARY="<span style=\"color:#b3261e;font-weight:bold\">$T_FAILED failed</span> &nbsp;&middot;&nbsp; $T_PASSED passed &nbsp;&middot;&nbsp; $T_FLAKY flaky &nbsp;&middot;&nbsp; $T_SKIPPED skipped &nbsp;&middot;&nbsp; $T_DURATION"
           fi
 
           row() {
             case "$2" in
-              success)   glyph="&#10003;"; colour="#1e6f3c"; label="passed" ;;
-              failure)   glyph="&#10007;"; colour="#b3261e"; label="FAILED" ;;
-              cancelled) glyph="&#9210;";  colour="#8a6d00"; label="cancelled" ;;
-              *)         glyph="&#8211;";  colour="#9aa0a6"; label="not run" ;;
+              success)   colour="#1e6f3c"; label="passed" ;;
+              failure)   colour="#b3261e"; label="FAILED" ;;
+              cancelled) colour="#8a6d00"; label="cancelled" ;;
+              *)         colour="#9aa0a6"; label="not run" ;;
             esac
-            printf '<tr><td style="padding:9px 20px;border-top:1px solid #ececec;font-family:Arial,sans-serif;font-size:14px;color:#202124">%s</td><td align="right" style="padding:9px 20px;border-top:1px solid #ececec;font-family:Arial,sans-serif;font-size:14px;color:%s;white-space:nowrap">%s&nbsp;%s</td></tr>' "$1" "$colour" "$glyph" "$label"
+            printf '<tr><td style="padding:10px 24px;border-top:1px solid #eceff1;font-family:Arial,sans-serif;font-size:14px;color:#263238">%s</td><td align="right" style="padding:10px 24px;border-top:1px solid #eceff1;font-family:Arial,sans-serif;font-size:14px;font-weight:bold;color:%s;white-space:nowrap">%s</td></tr>' "$1" "$colour" "$label"
+          }
+
+          detail() {
+            printf '<tr><td width="90" style="padding:3px 24px 3px 0;font-family:Arial,sans-serif;font-size:13px;color:#90a4ae">%s</td><td style="padding:3px 0;font-family:Arial,sans-serif;font-size:13px;color:#37474f">%s</td></tr>' "$1" "$2"
           }
 
           {
             echo 'html<<HTML_BODY_EOF'
             cat <<HTML
-          <table width="100%" cellpadding="0" cellspacing="0" bgcolor="#f4f4f5"><tr><td align="center" style="padding:24px 12px">
-          <table width="600" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="border:1px solid #e0e0e0">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eceff1"><tr><td align="center" style="padding:28px 12px">
+          <table width="620" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="border:1px solid #cfd8dc">
 
-          <tr><td bgcolor="#b3261e" style="padding:18px 20px;font-family:Arial,sans-serif;font-size:19px;font-weight:bold;color:#ffffff">
-          &#10007;&nbsp; $HEADLINE
+          <tr><td bgcolor="#263238" style="padding:16px 24px;font-family:Arial,sans-serif;font-size:15px;font-weight:bold;color:#ffffff;letter-spacing:0.5px">
+          blu2green <span style="color:#8ec640">&#183;</span> <span style="font-weight:normal;color:#b0bec5">E2E Automation</span>
           </td></tr>
 
-          <tr><td style="padding:16px 20px 2px;font-family:Arial,sans-serif;font-size:15px;color:#5f6368">
+          <tr><td bgcolor="#b3261e" style="padding:20px 24px;font-family:Arial,sans-serif;font-size:21px;font-weight:bold;color:#ffffff">
+          $HEADLINE
+          </td></tr>
+
+          <tr><td style="padding:18px 24px 0;font-family:Arial,sans-serif;font-size:14px;line-height:22px;color:#546e7a">
           $SUMMARY
           </td></tr>
 
-          <tr><td style="padding:6px 20px 2px;font-family:Arial,sans-serif;font-size:13px;color:#9aa0a6">
-          <b style="color:#5f6368">$BRANCH</b> &middot; $TRIGGER &middot; $FAILED of 5 jobs failed
-          </td></tr>
-
-          <tr><td style="padding:16px 20px 18px">
-          <table cellpadding="0" cellspacing="0"><tr><td bgcolor="#1a73e8" style="padding:11px 22px">
-          <a href="$RUN_URL" style="font-family:Arial,sans-serif;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none">View the run &rarr;</a>
+          <tr><td style="padding:20px 24px 22px">
+          <table cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#1a73e8" style="padding:12px 26px">
+          <a href="$RUN_URL" style="font-family:Arial,sans-serif;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none">View the run &nbsp;&rarr;</a>
           </td></tr></table>
           </td></tr>
 
-          <tr><td style="padding:0 0 4px">
-          <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td bgcolor="#f5f7f8" style="padding:9px 24px;border-top:1px solid #cfd8dc;border-bottom:1px solid #cfd8dc;font-family:Arial,sans-serif;font-size:11px;font-weight:bold;letter-spacing:1px;color:#607d8b">
+          PIPELINE
+          </td></tr>
+
+          <tr><td style="padding:0">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0">
           $(row "Typecheck and lint" "$R_STATIC")
           $(row "Smoke" "$R_SMOKE")
           $(row "Full suite" "$R_FULL")
@@ -404,10 +433,28 @@ jobs:
           </table>
           </td></tr>
 
-          <tr><td style="padding:16px 20px;border-top:1px solid #ececec;font-family:Arial,sans-serif;font-size:13px;line-height:20px;color:#5f6368">
-          Commit <span style="font-family:Consolas,monospace;color:#202124">${COMMIT:0:12}</span> by $ACTOR<br>
+          <tr><td bgcolor="#f5f7f8" style="padding:9px 24px;border-top:1px solid #cfd8dc;border-bottom:1px solid #cfd8dc;font-family:Arial,sans-serif;font-size:11px;font-weight:bold;letter-spacing:1px;color:#607d8b">
+          DETAILS
+          </td></tr>
+
+          <tr><td style="padding:14px 24px 16px">
+          <table cellpadding="0" cellspacing="0" border="0">
+          $(detail "Branch" "<b>$BRANCH</b>")
+          $(detail "Commit" "<span style=\"font-family:Consolas,monospace\">${COMMIT:0:12}</span>")
+          $(detail "Trigger" "$TRIGGER, by $ACTOR")
+          $(detail "Run" "#$RUN_NUMBER")
+          $(detail "Duration" "$T_DURATION")
+          </table>
+          </td></tr>
+
+          <tr><td style="padding:0 24px 18px;font-family:Arial,sans-serif;font-size:13px;line-height:20px;color:#607d8b">
           Traces, screenshots, video and the Allure report are attached to the run as artifacts.<br>
-          <span style="color:#9aa0a6">&#8211;&nbsp;not run is normal: each trigger runs only its own tier.</span>
+          <span style="color:#b0bec5">&ldquo;not run&rdquo; is normal &mdash; each trigger runs only its own tier.</span>
+          </td></tr>
+
+          <tr><td bgcolor="#f5f7f8" style="padding:14px 24px;border-top:1px solid #cfd8dc;font-family:Arial,sans-serif;font-size:12px;line-height:18px;color:#90a4ae">
+          Automated message from the blu2green E2E pipeline. Replies are not monitored.<br>
+          <a href="$REPO_URL" style="color:#607d8b;text-decoration:none">$REPO</a>
           </td></tr>
 
           </table></td></tr></table>
@@ -435,20 +482,28 @@ jobs:
           html_body: ${{ steps.mail.outputs.html }}
           # Plain-text alternative, for clients that refuse HTML outright.
           body: |
-            E2E suite failed — ${{ steps.mail.outputs.headline }}.
+            blu2green - E2E Automation
+            ${{ steps.mail.outputs.headline }}
 
-            Tests   ${{ needs.report.outputs.failed }} failed, ${{ needs.report.outputs.passed }} passed, ${{ needs.report.outputs.flaky }} flaky, ${{ needs.report.outputs.skipped }} skipped
+            Tests     ${{ needs.report.outputs.failed }} failed, ${{ needs.report.outputs.passed }} passed, ${{ needs.report.outputs.flaky }} flaky, ${{ needs.report.outputs.skipped }} skipped
+            Duration  ${{ needs.report.outputs.duration }}
 
-            Run     ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            Run       ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-            Branch  ${{ github.head_ref || github.ref_name }}
-            Commit  ${{ github.event.pull_request.head.sha || github.sha }}
-            Trigger ${{ github.event_name }} by ${{ github.actor }}
+            PIPELINE
+              Typecheck and lint   ${{ needs.static.result }}
+              Smoke                ${{ needs.smoke.result }}
+              Full suite           ${{ needs.full.result }}
+              Cross-browser        ${{ needs['cross-browser'].result }}
+              Merge reports        ${{ needs.report.result }}
 
-            Typecheck and lint   ${{ needs.static.result }}
-            Smoke                ${{ needs.smoke.result }}
-            Full suite           ${{ needs.full.result }}
-            Cross-browser        ${{ needs['cross-browser'].result }}
-            Merge reports        ${{ needs.report.result }}
+            DETAILS
+              Branch    ${{ github.head_ref || github.ref_name }}
+              Commit    ${{ github.event.pull_request.head.sha || github.sha }}
+              Trigger   ${{ github.event_name }}, by ${{ github.actor }}
+              Run       #${{ github.run_number }}
 
-            Traces, video and the Allure report are attached to the run.
+            Traces, screenshots, video and the Allure report are attached to the run.
+
+            Automated message from the blu2green E2E pipeline. Replies are not monitored.
+            ${{ github.server_url }}/${{ github.repository }}

@@ -1,8 +1,8 @@
-import type { Locator } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { routes } from '@config/endpoints';
 import { BasePage } from '@pages/base.page';
-import { PlatformHubPage } from '@pages/auth/platform-hub.page';
+import { DashboardPage } from '@pages/dashboard/dashboard.page';
 
 /**
  * The b2g Identity Layer sign-in card, on a different origin from the
@@ -24,11 +24,12 @@ export class IdentityLoginPage extends BasePage {
     return this.page.getByRole('textbox', { name: 'Enter your password' });
   }
 
-  /** This getter returns the Continue control that submits the credentials. */
+  /** This getter returns the Login control that submits the credentials. */
   // A div with no role, so getByRole('button') never resolves. The arrow shares
-  // the text node.
-  get continueButton(): Locator {
-    return this.page.getByText(/^Continue\s*→?$/);
+  // the text node. Named "Continue" until September 2026, so match the word
+  // loosely enough to survive the next rename but tightly enough to stay unique.
+  get loginButton(): Locator {
+    return this.page.getByText(/^(Login|Continue)\s*→?$/);
   }
 
   /** This getter returns the Forgot password link. */
@@ -67,19 +68,21 @@ export class IdentityLoginPage extends BasePage {
     await this.password.fill(password);
   }
 
-  /** This method submits the sign-in form and returns the platform hub. */
-  // The hub replaces the card on the same tab, so no new-page event to await.
-  async submit(): Promise<PlatformHubPage> {
-    await this.continueButton.click();
+  /** This method submits the sign-in form and returns the dashboard it lands on. */
+  // The identity layer hands back to the application in this same tab, via
+  // /app/nibe-login#enc=<JWT>, which then redirects. No new tab and no platform
+  // hub in between — both existed until September 2026 and were removed.
+  async submit(): Promise<DashboardPage> {
+    await this.loginButton.click();
 
-    const hub = new PlatformHubPage(this.page);
-    await hub.waitUntilReady();
+    const dashboard = new DashboardPage(this.page);
+    await dashboard.waitUntilReady();
 
-    return hub;
+    return dashboard;
   }
 
-  /** This method signs in and returns the platform hub that follows. */
-  async signIn(identifier: string, password: string): Promise<PlatformHubPage> {
+  /** This method signs in and returns the dashboard that follows. */
+  async signIn(identifier: string, password: string): Promise<DashboardPage> {
     await this.enterIdentifier(identifier);
     await this.enterPassword(password);
 
@@ -87,15 +90,22 @@ export class IdentityLoginPage extends BasePage {
   }
 
   /** This method submits credentials expected to be refused. */
-  // Separate from signIn, which blocks on reaching the hub — a refusal never
-  // gets there.
+  // Separate from signIn, which blocks on reaching the dashboard — a refusal
+  // never gets there.
   async signInExpectingRefusal(
     identifier: string,
     password: string,
   ): Promise<void> {
     await this.enterIdentifier(identifier);
     await this.enterPassword(password);
-    await this.continueButton.click();
+    await this.loginButton.click();
     await expect(this.page).toHaveURL(/\/demoapp\/login\//);
+  }
+
+  /** This getter returns the page this card is bound to, for URL assertions. */
+  // BasePage keeps `page` protected; sign-in arrives on a tab the spec did not
+  // open, so it needs a handle to assert the origin.
+  get tab(): Page {
+    return this.page;
   }
 }

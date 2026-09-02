@@ -6,11 +6,10 @@ export const routes = {
   home: '/home',
   dashboard: '/app/dashboard/commondashboard',
 
-  /** The b2g Identity Layer sign-in page, and the platform hub behind it. */
+  /** The b2g Identity Layer sign-in page. */
   // Absolute and on another host: authentication lives outside the application,
-  // so `baseURL` does not cover these two.
+  // so `baseURL` does not cover it.
   identityLogin: 'https://nibe.businessgateways.com/demoapp/login/b2g',
-  platformHub: 'https://nibe.businessgateways.com/demoapp/tab/dashboard/b2g',
 } as const;
 
 /**

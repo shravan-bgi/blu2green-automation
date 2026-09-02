@@ -19,39 +19,38 @@ test.describe('Verify a registered user should be able to sign in', () => {
 
         const identifier = account[testCase.identifierKey];
 
-        const { tab, identityLoginPage } =
-          await test.step('Open the sign-in page from the home page', async () => {
+        const { tab, identityLoginPage } = await test.step(
+          'Open the sign-in page from the home page',
+          async () => {
             await homePage.goto();
             await expect(homePage.loginLink).toBeVisible();
 
             const opened = await homePage.openLogin();
+
+            // Sign-in is on another origin, not in the application.
             await expect(opened.tab).toHaveURL(/nibe\.businessgateways\.com/);
 
             return opened;
-          });
+          },
+        );
 
-        const hub =
-          await test.step(`Sign in with a valid ${testCase.label} and password`, async () => {
+        const dashboardPage = await test.step(
+          `Sign in with a valid ${testCase.label} and password`,
+          async () => {
             await expect(identityLoginPage.identifier).toBeVisible();
             await expect(identityLoginPage.password).toBeVisible();
 
             return identityLoginPage.signIn(identifier, account.password);
-          });
-
-        await test.step('Check the platform hub lists an accessible platform', async () => {
-          await expect(tab).toHaveURL(/\/demoapp\/tab\/dashboard\//);
-          await expect(hub.accountName).toBeVisible();
-          await expect(hub.accessPlatformButton).toBeEnabled();
-        });
-
-        const { tab: dashboardTab, dashboardPage } =
-          await test.step('Enter the blu2green platform', async () =>
-            hub.accessPlatform());
+          },
+        );
 
         await test.step('Check the dashboard is displayed', async () => {
-          await expect(dashboardTab).toHaveURL(
-            new RegExp(`${routes.dashboard}$`),
-          );
+          // Same tab the identity layer was on: it hands back to the
+          // application in place, through /app/nibe-login#enc=<JWT>.
+          await expect(tab).toHaveURL(new RegExp(`${routes.dashboard}$`));
+
+          // Content as well as URL: the handoff redirects through
+          // /app/nibe-login, so a URL check alone can pass mid-render.
           await expect(dashboardPage.enterpriseAdministration).toBeVisible();
           await expect(dashboardPage.userOperationsHubLink).toBeVisible();
         });
