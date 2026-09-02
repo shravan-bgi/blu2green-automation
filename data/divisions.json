@@ -1,5 +1,5 @@
 {
-  "_note": "Static values for the division journeys. The description is deliberately one fixed sentence: nothing about the feature varies with it, and a generated one would only make two runs harder to diff.",
+  "_note": "Static values and the case table for the division journeys. In `cases` the key is the test ID and the row is what that test is called in the Allure report, when it runs and how much it matters. Renaming a title orphans that test's Allure trend line, so treat these as series names rather than free text.",
 
   "defaults": {
     "sector": "General",
@@ -16,5 +16,33 @@
     "_note": "Already present in the b2g Drive on the demo environment, so the tests select it rather than uploading a copy. The folder really is capitalised. The drive truncates the displayed file name to 'division-logo.p...', so only the stem is matched.",
     "folder": "User_management",
     "file": "division-logo"
+  },
+
+  "cases": {
+    "TC_DIV_CREATE_001": {
+      "title": "TC_DIV_CREATE_001 | Verify an administrator can add a new division with only the mandatory details and see it listed with a system-generated division ID",
+      "tag": ["@smoke", "@user-operations-hub", "@positive", "@ui"],
+      "severity": "blocker"
+    },
+    "TC_DIV_CREATE_002": {
+      "title": "TC_DIV_CREATE_002 | Verify an administrator can add a new division with an image chosen from the b2g Drive",
+      "tag": ["@regression", "@user-operations-hub", "@positive", "@ui"],
+      "severity": "critical"
+    },
+    "TC_DIV_CREATE_003": {
+      "title": "TC_DIV_CREATE_003 | Verify a division that repeats the name of an existing division is refused and is not added to the division list",
+      "tag": ["@regression", "@user-operations-hub", "@negative", "@ui"],
+      "severity": "critical"
+    },
+    "TC_DIV_CREATE_004": {
+      "title": "TC_DIV_CREATE_004 | Verify a newly added division is offered in the Division list when a new department is created",
+      "tag": ["@regression", "@user-operations-hub", "@positive", "@ui"],
+      "severity": "normal"
+    },
+    "TC_DIV_CREATE_005": {
+      "title": "TC_DIV_CREATE_005 | Verify a newly added division is offered in the Division list when a new user is created",
+      "tag": ["@regression", "@user-operations-hub", "@positive", "@ui"],
+      "severity": "normal"
+    }
   }
 }

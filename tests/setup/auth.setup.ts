@@ -1,5 +1,5 @@
 import * as allure from 'allure-js-commons';
-import { account } from '@config/auth-cases';
+import { account } from '@config/sign-in-cases';
 import { routes } from '@config/endpoints';
 import { environment } from '@config/environment';
 import { expect, test as setup } from '@fixtures/test-fixtures';

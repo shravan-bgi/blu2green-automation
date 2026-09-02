@@ -48,7 +48,7 @@ export const environment = {
   baseURL: required('DEMO_BASE_URL'),
 
   // No accounts here — fixture-account values are test data and live in
-  // data/auth.json. Only per-environment settings belong in this file.
+  // data/sign-in.json. Only per-environment settings belong in this file.
 
   /** Where the one signed-in session per run is saved for every project to reuse. */
   // Gitignored — the file holds a live session. Relative to the repository root,

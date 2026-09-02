@@ -1,0 +1,26 @@
+{
+  "_note": "The fixture account and the sign-in case table. Not secrets — the password is the static one every demo test account uses. In `cases` the key is the test ID and the row is what that test is called in the Allure report, when it runs and how much it matters. `identifierKey` names a field on the account below, so covering a new identifier is a new row and no TypeScript change. Renaming a title orphans that test's Allure trend line, so treat these as series names rather than free text.",
+
+  "account": {
+    "email": "lewishamiltion@businessgateways.com",
+    "mobile": "93452576",
+    "password": "Test@123"
+  },
+
+  "cases": {
+    "TC_LOGIN_001": {
+      "title": "TC_LOGIN_001 | Verify a registered user can sign in with a valid email address and password and reach the blu2green dashboard",
+      "label": "email address",
+      "identifierKey": "email",
+      "tag": ["@smoke", "@auth", "@positive", "@ui"],
+      "severity": "blocker"
+    },
+    "TC_LOGIN_002": {
+      "title": "TC_LOGIN_002 | Verify a registered user can sign in with a valid mobile number and password and reach the blu2green dashboard",
+      "label": "mobile number",
+      "identifierKey": "mobile",
+      "tag": ["@regression", "@auth", "@positive", "@ui"],
+      "severity": "critical"
+    }
+  }
+}

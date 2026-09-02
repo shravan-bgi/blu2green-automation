@@ -1,4 +1,13 @@
 import type { Locator } from '@playwright/test';
+import type { Severity } from 'allure-js-commons';
+
+/** One row of the division case table in data/divisions.json. */
+// No `id` field: the key it is stored under is the test ID.
+export type DivisionCase = {
+  title: string;
+  tag: string[];
+  severity: Severity;
+};
 
 /**
  * What a form carrying a Division dropdown offers the division journeys.

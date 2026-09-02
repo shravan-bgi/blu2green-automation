@@ -56,7 +56,7 @@ This repository:
 - **Test directory:** `tests/e2e/`, plus `tests/setup/` for the sign-in-once `setup` project
 - **Current state:** seven tests over two journeys.
   - Sign in — `TC_LOGIN_001` (email identifier) and `TC_LOGIN_002` (mobile identifier),
-    driven from `data/auth.json`. The only specs that sign in through the UI.
+    driven from `data/sign-in.json`. The only specs that sign in through the UI.
   - Add a division — `TC_DIV_CREATE_001`–`005`, covering the mandatory-fields path, a logo
     attached from the b2g Drive, the duplicate-name refusal, and propagation into the Add
     Department and Add User division dropdowns.
@@ -121,7 +121,7 @@ it is non-blocking, and a quarantined test failing is expected rather than news.
 notification. Repository variable: `DEMO_BASE_URL`.
 
 **No login credentials in CI.** The fixture account is test data — its password is the static
-one every test account on the demo environment carries — so it lives in `data/auth.json` and
+one every test account on the demo environment carries — so it lives in `data/sign-in.json` and
 needs no secret. When the automation credential pack supplies a dedicated account, the values
 change in that file and nothing in the pipeline moves.
 
@@ -195,7 +195,7 @@ Full detail in [CLAUDE.md](../CLAUDE.md). The two things downstream skills need:
 - **Test data strategy:** generated per test by a factory, with a per-run stamp plus a counter
   for uniqueness — the values feed the very uniqueness rules under test, so a collision would
   read as a product bug. Long-lived fixture accounts for anything that must already exist,
-  never created by a test. Fixture-account values are test data and live in `data/auth.json`,
+  never created by a test. Fixture-account values are test data and live in `data/sign-in.json`,
   not `.env` — only genuinely per-environment settings belong there. No seeding, no
   truncation, no rollback: the database forbids `DELETE`.
 
