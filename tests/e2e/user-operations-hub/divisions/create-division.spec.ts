@@ -21,7 +21,7 @@ test.describe('Verify an administrator should be able to add a division to the o
       await allure.parameter('Division name', division.name);
 
       const divisionsPage =
-        await test.step('Open the division list from the dashboard', async () => {
+        await test.step('Given an administrator is on the division list', async () => {
           await dashboardPage.goto();
 
           const hub = await dashboardPage.openUserOperationsHub();
@@ -30,7 +30,7 @@ test.describe('Verify an administrator should be able to add a division to the o
           return hub.openDivisions();
         });
 
-      await test.step('Add a division with only the mandatory details', async () => {
+      await test.step('When a division is added with only the mandatory details', async () => {
         const form = await divisionsPage.openAddDivision();
 
         await form.fillDetails(division);
@@ -43,7 +43,7 @@ test.describe('Verify an administrator should be able to add a division to the o
         await divisionsPage.dismissDialog();
       });
 
-      await test.step('Check the division is listed with a system-generated ID', async () => {
+      await test.step('Then it is listed with a system-generated Division ID', async () => {
         await divisionsPage.search(division.name);
 
         await expect(divisionsPage.divisionRow(division.name)).toBeVisible();
@@ -55,14 +55,14 @@ test.describe('Verify an administrator should be able to add a division to the o
         );
       });
 
-      await test.step('Check the row offers Edit and Delete', async () => {
+      await test.step('And its row offers Edit and Delete', async () => {
         await divisionsPage.openRowActions(division.name);
 
         await expect(divisionsPage.editOption).toBeVisible();
         await expect(divisionsPage.deleteOption).toBeVisible();
       });
 
-      await test.step('Check the metric card, the tile, the chip and the table agree on how many divisions exist', async () => {
+      await test.step('And the metric card, tile, chip and table agree on how many divisions exist', async () => {
         await expect
           .poll(
             async () =>
@@ -90,24 +90,24 @@ test.describe('Verify an administrator should be able to add a division to the o
         `${divisionData.logo.folder}/${divisionData.logo.file}`,
       );
 
-      const form = await test.step('Open the Add Division form', async () => {
+      const form = await test.step('Given the Add Division form is open', async () => {
         await divisionsPage.goto();
 
         return divisionsPage.openAddDivision();
       });
 
-      await test.step('Fill the division details', async () => {
+      await test.step('When the division details are filled in', async () => {
         await form.fillDetails(division);
       });
 
-      await test.step('Attach the division logo from the b2g Drive', async () => {
+      await test.step('And a logo is attached from the b2g Drive', async () => {
         await form.attachImageFromDrive(
           divisionData.logo.folder,
           divisionData.logo.file,
         );
       });
 
-      await test.step('Add the division', async () => {
+      await test.step('And the division is added', async () => {
         await expect(form.addButton).toBeEnabled();
         await form.submit();
 
@@ -117,7 +117,7 @@ test.describe('Verify an administrator should be able to add a division to the o
         await divisionsPage.dismissDialog();
       });
 
-      await test.step('Check the division is listed', async () => {
+      await test.step('Then it appears in the division list', async () => {
         await divisionsPage.search(division.name);
 
         await expect(divisionsPage.divisionRow(division.name)).toBeVisible();
@@ -135,13 +135,13 @@ test.describe('Verify an administrator should be able to add a division to the o
         divisionData.seed.duplicateProbe,
       );
 
-      const form = await test.step('Open the Add Division form', async () => {
+      const form = await test.step('Given the Add Division form is open', async () => {
         await divisionsPage.goto();
 
         return divisionsPage.openAddDivision();
       });
 
-      await test.step('Submit the name of a division that already exists', async () => {
+      await test.step('When a name that already exists is submitted', async () => {
         await form.fillDetails({
           ...division,
           name: divisionData.seed.duplicateProbe,
@@ -149,13 +149,13 @@ test.describe('Verify an administrator should be able to add a division to the o
         await form.submit();
       });
 
-      await test.step('Check the duplicate is refused', async () => {
+      await test.step('Then the duplicate is refused', async () => {
         await expect(divisionsPage.dialog).toBeVisible();
         await expect(divisionsPage.dialogBody).toContainText(/already exist/i);
         await divisionsPage.dismissDialog();
       });
 
-      await test.step('Check no second division carries that name', async () => {
+      await test.step('And no second division carries that name', async () => {
         await divisionsPage.goto();
         await divisionsPage.search(divisionData.seed.name);
         await expect(
@@ -195,11 +195,11 @@ test.describe('Verify an administrator should be able to add a division to the o
         // driven through the form here: what these two verify is that a division
         // reaches the dropdown, not how it came to exist, and the form costs a
         // full journey the create tests above already prove.
-        await test.step('Open the division list', async () => {
+        await test.step('Given a division exists and the division list is open', async () => {
           await divisionsPage.goto();
         });
 
-        await test.step(`Check the division is offered on the ${testCase.form} form`, async () => {
+        await test.step(`Then it is offered on the ${testCase.form} form`, async () => {
           const form = await testCase.open(divisionsPage);
 
           await form.openDivisionDropdown();

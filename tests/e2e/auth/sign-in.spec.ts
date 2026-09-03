@@ -19,7 +19,7 @@ test.describe('Verify a registered user should be able to sign in', () => {
       const identifier = account[testCase.identifierKey];
 
       const { identityLoginPage } =
-        await test.step('Open the sign-in page from the home page', async () => {
+        await test.step('Given the sign-in page has been opened from the home page', async () => {
           await homePage.goto();
           await expect(homePage.loginLink).toBeVisible();
 
@@ -30,14 +30,14 @@ test.describe('Verify a registered user should be able to sign in', () => {
         });
 
       const dashboardPage =
-        await test.step(`Sign in with a valid ${testCase.label} and password`, async () => {
+        await test.step(`When signing in with a valid ${testCase.label} and password`, async () => {
           await expect(identityLoginPage.identifier).toBeVisible();
           await expect(identityLoginPage.password).toBeVisible();
 
           return identityLoginPage.signIn(identifier, account.password);
         });
 
-      await test.step('Check the dashboard is displayed', async () => {
+      await test.step('Then the blu2green dashboard is displayed', async () => {
         // The dashboard's own tab, which is not always the one sign-in happened
         // in: the identity layer either hands back in place through
         // /app/nibe-login#enc=<JWT>, or routes through the NIBE platform hub and

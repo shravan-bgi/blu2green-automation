@@ -21,8 +21,8 @@ const listingRequest = {
 test.describe('Verify the division service refuses a caller who has proved nothing', () => {
   test.beforeEach(async () => {
     await allure.epic('User Operations Hub');
-    await allure.feature('Divisions');
-    await allure.story('Division service — authentication');
+    await allure.feature('Divisions API');
+    await allure.story('Authentication boundary');
   });
 
   // Two cases this environment cannot give us, recorded rather than faked:
@@ -81,8 +81,8 @@ test.describe('Verify the division service refuses a caller who has proved nothi
 test.describe('Verify the division service answers in the shape its consumers rely on', () => {
   test.beforeEach(async () => {
     await allure.epic('User Operations Hub');
-    await allure.feature('Divisions');
-    await allure.story('Division service — contract');
+    await allure.feature('Divisions API');
+    await allure.story('Response contract');
   });
 
   test(
@@ -139,8 +139,8 @@ test.describe('Verify the division service answers in the shape its consumers re
 test.describe('Verify the division service enforces what the screen cannot', () => {
   test.beforeEach(async () => {
     await allure.epic('User Operations Hub');
-    await allure.feature('Divisions');
-    await allure.story('Division service — rules');
+    await allure.feature('Divisions API');
+    await allure.story('Service rules');
   });
 
   test(
@@ -179,7 +179,7 @@ test.describe('Verify the division service enforces what the screen cannot', () 
       const created: number[] = [];
 
       try {
-        await test.step('Create four divisions at the same moment', async () => {
+        await test.step('When four divisions are created at the same moment', async () => {
           const keys = await Promise.all(
             divisions.map((division) => userOperationsHubApi.createDivision(division)),
           );
@@ -188,7 +188,7 @@ test.describe('Verify the division service enforces what the screen cannot', () 
           expect(new Set(keys).size, 'two creations returned the same key').toBe(keys.length);
         });
 
-        await test.step('Check every one was given a distinct Division ID', async () => {
+        await test.step('Then every one has a distinct Division ID', async () => {
           const records = await Promise.all(
             divisions.map((division) => userOperationsHubApi.findDivision(division.name)),
           );
@@ -284,8 +284,8 @@ test.describe('Verify the division service enforces what the screen cannot', () 
 test.describe('Verify the division search cannot be made to leak or to fail', () => {
   test.beforeEach(async () => {
     await allure.epic('User Operations Hub');
-    await allure.feature('Divisions');
-    await allure.story('Division service — search safety');
+    await allure.feature('Divisions API');
+    await allure.story('Search safety');
   });
 
   test(
@@ -320,7 +320,7 @@ test.describe('Verify the division search cannot be made to leak or to fail', ()
       ];
 
       for (const probe of probes) {
-        await test.step(`Search a ${probe.label}`, async () => {
+        await test.step(`When a ${probe.label} is searched for`, async () => {
           const listing = await userOperationsHubApi.divisionListing(probe.term);
 
           // Reaching here already proves no error page or raw SQL came back: the

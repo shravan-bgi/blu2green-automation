@@ -21,12 +21,12 @@ test.describe('Verify an administrator should be able to find a division in the 
       await allure.severity(divisionCases.TC_DIVSEARCH_001.severity);
       await allure.parameter('Division name', existingDivision.name);
 
-      await test.step('Search for the division by name', async () => {
+      await test.step('When the division is searched for by name', async () => {
         await divisionsPage.goto();
         await divisionsPage.search(existingDivision.name);
       });
 
-      await test.step('Check it is the only division shown', async () => {
+      await test.step('Then it is the only division shown', async () => {
         await expect(divisionsPage.divisionRow(existingDivision.name)).toBeVisible();
         await expect(divisionsPage.rows).toHaveCount(1);
       });
@@ -39,7 +39,7 @@ test.describe('Verify an administrator should be able to find a division in the 
     async ({ divisionsPage, userOperationsHubApi, existingDivision }) => {
       await allure.severity(divisionCases.TC_DIVSEARCH_002.severity);
 
-      const divisionId = await test.step('Read the generated Division ID', async () => {
+      const divisionId = await test.step('Given the division has a system-generated Division ID', async () => {
         const record = await userOperationsHubApi.findDivision(existingDivision.name);
 
         expect(record, 'the seeded division could not be read back').toBeDefined();
@@ -49,12 +49,12 @@ test.describe('Verify an administrator should be able to find a division in the 
 
       await allure.parameter('Division ID', divisionId);
 
-      await test.step('Search for the division by that ID', async () => {
+      await test.step('When that ID is searched for', async () => {
         await divisionsPage.goto();
         await divisionsPage.search(divisionId);
       });
 
-      await test.step('Check the division is found', async () => {
+      await test.step('Then the division is found', async () => {
         // The row, not an exact row count. Division IDs are supposed to be
         // unique and are not — TC_DIVAPI_004 reproduces a generation race that
         // puts one ID on two divisions — so counting here would fail for a
@@ -71,7 +71,7 @@ test.describe('Verify an administrator should be able to find a division in the 
       await allure.severity(divisionCases.TC_DIVSEARCH_003.severity);
       await allure.parameter('Division name', existingDivision.name);
 
-      await test.step('Move to the second page of divisions', async () => {
+      await test.step('Given an administrator has paged into the middle of the list', async () => {
         await divisionsPage.goto();
 
         await expect(divisionsPage.nextPageButton).toBeEnabled();
@@ -85,12 +85,12 @@ test.describe('Verify an administrator should be able to find a division in the 
         await expect(divisionsPage.rows.first()).toBeVisible();
       });
 
-      await test.step('Search from there', async () => {
+      await test.step('When a division is searched for from there', async () => {
         await divisionsPage.search(existingDivision.name);
       });
 
       await test.step(
-        'Check the matches are shown rather than the page that was open',
+        'Then the matches are shown rather than the page that was open',
         async () => {
           // The defect this guards against is a search that filters the data but
           // leaves the paginator on page two, so an administrator sees an empty
@@ -108,7 +108,7 @@ test.describe('Verify an administrator should be able to find a division in the 
     async ({ divisionsPage, existingDivision }) => {
       await allure.severity(divisionCases.TC_DIVSEARCH_004.severity);
 
-      const total = await test.step('Note how many divisions there are', async () => {
+      const total = await test.step('Given an administrator is on the full division list', async () => {
         await divisionsPage.goto();
 
         return divisionsPage.rowCount();
@@ -116,13 +116,13 @@ test.describe('Verify an administrator should be able to find a division in the 
 
       await allure.parameter('Divisions before searching', String(total));
 
-      await test.step('Narrow the list to one division', async () => {
+      await test.step('When the list is narrowed to one division', async () => {
         await divisionsPage.search(existingDivision.name);
 
         await expect(divisionsPage.rows).toHaveCount(1);
       });
 
-      await test.step('Clear the search and check the whole list returns', async () => {
+      await test.step('Then clearing the search brings the whole list back', async () => {
         await divisionsPage.clearSearch();
 
         await expect(divisionsPage.searchField).toHaveValue('');
@@ -154,12 +154,12 @@ test.describe('Verify an administrator should be able to find a division in the 
       const noSuchDivision = 'zzz-no-division-is-called-this-zzz';
       await allure.parameter('Search term', noSuchDivision);
 
-      await test.step('Search for something that cannot exist', async () => {
+      await test.step('When a term that cannot match anything is searched for', async () => {
         await divisionsPage.goto();
         await divisionsPage.search(noSuchDivision);
       });
 
-      await test.step('Check the list says so rather than showing stale rows', async () => {
+      await test.step('Then the list says so rather than showing stale rows', async () => {
         // A table that keeps its previous rows after a search that matched
         // nothing is the dangerous failure: it reads as a result.
         await expect(divisionsPage.emptyState).toBeVisible();

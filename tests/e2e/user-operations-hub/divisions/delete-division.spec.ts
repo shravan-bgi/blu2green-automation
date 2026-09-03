@@ -18,7 +18,7 @@ test.describe('Verify an administrator should be able to delete a division', () 
       await allure.severity(divisionCases.TC_DIV_DELETE_001.severity);
       await allure.parameter('Division name', existingDivision.name);
 
-      await test.step('Ask to delete the division', async () => {
+      await test.step('When deletion is asked for', async () => {
         await divisionsPage.goto();
         await divisionsPage.search(existingDivision.name);
 
@@ -27,19 +27,19 @@ test.describe('Verify an administrator should be able to delete a division', () 
         await divisionsPage.openDelete(existingDivision.name);
       });
 
-      await test.step('Check the confirmation says what it will do', async () => {
+      await test.step('Then the confirmation says what it will do', async () => {
         await expect(divisionsPage.dialogBody).toContainText(existingDivision.name);
         await expect(divisionsPage.dialogBody).toContainText(/permanently delete/i);
       });
 
-      await test.step('Confirm the deletion', async () => {
+      await test.step('When the deletion is confirmed', async () => {
         await divisionsPage.confirmDelete();
 
         await expect(divisionsPage.dialogBody).toContainText(/has been deleted/i);
         await divisionsPage.dismissDialog();
       });
 
-      await test.step('Check the division is gone from the list', async () => {
+      await test.step('Then the division is gone from the list', async () => {
         await divisionsPage.search(existingDivision.name);
 
         await expect(divisionsPage.rowsNamed(existingDivision.name)).toHaveCount(0);
@@ -47,7 +47,7 @@ test.describe('Verify an administrator should be able to delete a division', () 
       });
 
       await test.step(
-        'Check the metric card, the tile, the chip and the table still agree',
+        'And the metric card, tile, chip and table still agree',
         async () => {
           // Agreement rather than "one fewer": the environment is shared and the
           // suite is fully parallel, so a delta would be racing every other
@@ -77,7 +77,7 @@ test.describe('Verify an administrator should be able to delete a division', () 
       await allure.severity(divisionCases.TC_DIV_DELETE_002.severity);
       await allure.parameter('Division name', existingDivision.name);
 
-      await test.step('Ask to delete the division, then cancel', async () => {
+      await test.step('When deletion is asked for and then cancelled', async () => {
         await divisionsPage.goto();
         await divisionsPage.search(existingDivision.name);
 
@@ -87,7 +87,7 @@ test.describe('Verify an administrator should be able to delete a division', () 
         await divisionsPage.declineDelete();
       });
 
-      await test.step('Check the division is still there', async () => {
+      await test.step('Then the division is still there', async () => {
         // Searched again rather than read where it was left: declining reloads
         // the listing, which drops the filter, and the table pages at ten rows
         // against a tenant holding well over a hundred divisions — so the row is
@@ -112,7 +112,7 @@ test.describe('Verify an administrator should be able to delete a division', () 
       await allure.parameter('Division name', divisionData.seed.name);
 
       await test.step(
-        'Check the system-default division offers no row actions at all',
+        'Then the system-default division offers no row actions at all',
         async () => {
           await divisionsPage.goto();
           await divisionsPage.search(divisionData.seed.name);
@@ -128,7 +128,7 @@ test.describe('Verify an administrator should be able to delete a division', () 
         },
       );
 
-      await test.step('Check the division is still on the tenant', async () => {
+      await test.step('And the division is still on the tenant', async () => {
         expect(await userOperationsHubApi.countDivisionsNamed(divisionData.seed.name)).toBe(1);
       });
     },
@@ -141,7 +141,7 @@ test.describe('Verify an administrator should be able to delete a division', () 
       await allure.severity(divisionCases.TC_DIV_DELETE_004.severity);
       await allure.parameter('Division name', existingDivision.name);
 
-      await test.step('Delete the division', async () => {
+      await test.step('Given the division has been deleted', async () => {
         // Removed through the service rather than the form: what this verifies
         // is that a deleted division stops being offered, not how it came to be
         // deleted — TC_DIV_DELETE_001 covers that, and doing it again here would
@@ -152,7 +152,7 @@ test.describe('Verify an administrator should be able to delete a division', () 
       });
 
       await test.step(
-        'Check it is no longer offered on the Add Department form',
+        'Then it is no longer offered on the Add Department form',
         async () => {
           await divisionsPage.goto();
 
@@ -167,7 +167,7 @@ test.describe('Verify an administrator should be able to delete a division', () 
         },
       );
 
-      await test.step('Check it is no longer offered on the Add User form', async () => {
+      await test.step('And it is no longer offered on the Add User form', async () => {
         await divisionsPage.goto();
 
         const usersPage = await divisionsPage.openUsers();
