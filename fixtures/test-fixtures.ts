@@ -1,6 +1,6 @@
 import { test as base, expect } from '@playwright/test';
 import { bearerToken } from '@api/auth';
-import { UserManagementApi } from '@api/user-management.api';
+import { UserOperationsHubApi } from '@api/user-operations-hub.api';
 import { environment } from '@config/environment';
 import { createPool, type Pool } from '@db/client';
 import { buildDivision } from '@factories/division.factory';
@@ -39,10 +39,10 @@ type TestFixtures = {
   divisionsPage: DivisionsPage;
 
   /**
-   * The user-management service as the signed-in account, for the work a test
-   * needs done but is not testing.
+   * The User Operations Hub service as the signed-in account, for the work a
+   * test needs done but is not testing.
    */
-  userManagementApi: UserManagementApi;
+  userOperationsHubApi: UserOperationsHubApi;
 
   /** Details for one division no other test in this run can name. Not yet created. */
   division: Division;
@@ -88,10 +88,10 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await use(new DivisionsPage(page));
   },
 
-  /** This fixture provides the user-management service, signed in and disposed afterwards. */
+  /** This fixture provides the User Operations Hub service, signed in and disposed afterwards. */
   // The token is read at request time rather than baked into the config, so
   // nothing here holds a credential that can go stale between runs.
-  userManagementApi: async ({ playwright }, use) => {
+  userOperationsHubApi: async ({ playwright }, use) => {
     const context = await playwright.request.newContext({
       baseURL: environment.baseURL,
       extraHTTPHeaders: {
@@ -103,7 +103,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       },
     });
 
-    await use(new UserManagementApi(context));
+    await use(new UserOperationsHubApi(context));
     await context.dispose();
   },
 
@@ -116,12 +116,12 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   // permanent, so anything removing "whatever is new" would take another
   // worker's division with it. A name that was never created is nothing to do
   // rather than a failure, which is the normal outcome for the duplicate case.
-  division: async ({ userManagementApi }, use) => {
+  division: async ({ userOperationsHubApi }, use) => {
     const division = buildDivision();
 
     await use(division);
 
-    await userManagementApi.deleteDivisionNamed(division.name);
+    await userOperationsHubApi.deleteDivisionNamed(division.name);
   },
 
   /** This fixture creates one division through the API for a test that needs one to act on. */
@@ -133,13 +133,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   //
   // Teardown goes by the key the create returned, so it removes the division
   // this test made even if the test renamed it, which the edit journeys do.
-  existingDivision: async ({ userManagementApi }, use) => {
+  existingDivision: async ({ userOperationsHubApi }, use) => {
     const division = buildDivision();
-    const pk = await userManagementApi.createDivision(division);
+    const pk = await userOperationsHubApi.createDivision(division);
 
     await use(division);
 
-    await userManagementApi.deleteDivision(pk);
+    await userOperationsHubApi.deleteDivision(pk);
   },
 });
 

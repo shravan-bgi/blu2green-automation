@@ -51,7 +51,7 @@ export const endpoints = {} as const;
  */
 // Captured from the application on 2026-09-03 by watching what the division
 // screens send, rather than taken from documentation — there is none.
-export const userManagementApi = {
+export const userOperationsHubApi = {
   base: '/usermg/web/apium/um',
 
   addDivision: 'adddivision',

@@ -1,4 +1,5 @@
 import type { Locator } from '@playwright/test';
+import { expect } from '@playwright/test';
 import { routes } from '@config/endpoints';
 import { BasePage } from '@pages/base.page';
 import { DivisionFormPage } from '@pages/user-operations-hub/divisions/division-form.page';
@@ -105,6 +106,27 @@ export class DivisionsPage extends BasePage {
     return this.page.getByRole('menuitem', { name: 'Delete' });
   }
 
+  /** This getter returns the button that confirms a deletion. */
+  // Labelled with the action rather than a bare Yes, so it is matched by name.
+  // The confirmation and the outcome that replaces it are both the same dialog
+  // element, which is why the two are told apart by their buttons.
+  get confirmDeleteButton(): Locator {
+    return this.dialog.getByRole('button', { name: 'Delete', exact: true });
+  }
+
+  /** This getter returns the button that declines a deletion. */
+  // Cancel, not No. The dialog carries a hidden `No` button in its markup that
+  // is never shown for this confirmation, so reading the dialog's text suggests
+  // three choices where only two are offered.
+  get declineDeleteButton(): Locator {
+    return this.dialog.getByRole('button', { name: 'Cancel', exact: true });
+  }
+
+  /** This getter returns the button that clears an outcome dialog. */
+  get acknowledgeButton(): Locator {
+    return this.dialog.getByRole('button', { name: 'OK', exact: true });
+  }
+
   /** This getter returns the paginator's range label, when the table has one. */
   // Scoped to `.custom-paginator`: the page renders the same paginator twice for
   // its responsive layouts, and an unscoped match is a strict-mode violation. The
@@ -193,6 +215,31 @@ export class DivisionsPage extends BasePage {
   async openRowActions(name: string): Promise<void> {
     await this.rowActionsMenu(name).click();
     await this.editOption.waitFor({ timeout: 15_000 });
+  }
+
+  /** This method opens one division's row menu and asks to delete it. */
+  // Stops at the confirmation rather than going through with it, so that a spec
+  // can assert on what the confirmation says — and so the declining journey has
+  // somewhere to stand.
+  async openDelete(name: string): Promise<void> {
+    await this.openRowActions(name);
+    await this.deleteOption.click();
+    await this.confirmDeleteButton.waitFor({ timeout: 30_000 });
+  }
+
+  /** This method confirms a deletion and waits for the outcome to be shown. */
+  // Waits for the acknowledge button rather than for the dialog to close: the
+  // outcome replaces the confirmation in the same element, so nothing closes in
+  // between and only the buttons say which of the two is on screen.
+  async confirmDelete(): Promise<void> {
+    await this.confirmDeleteButton.click();
+    await this.acknowledgeButton.waitFor({ timeout: 60_000 });
+  }
+
+  /** This method declines a deletion and waits for the confirmation to close. */
+  async declineDelete(): Promise<void> {
+    await this.declineDeleteButton.click();
+    await expect(this.dialog).toBeHidden({ timeout: 30_000 });
   }
 
   /** This method opens the department list from the Departments tile. */

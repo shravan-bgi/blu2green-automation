@@ -13,7 +13,7 @@ test.describe('Verify an administrator should be able to edit an existing divisi
   test(
     divisionCases.TC_DIV_EDIT_001.title,
     { tag: divisionCases.TC_DIV_EDIT_001.tag },
-    async ({ divisionsPage, userManagementApi, existingDivision }) => {
+    async ({ divisionsPage, userOperationsHubApi, existingDivision }) => {
       await allure.severity(divisionCases.TC_DIV_EDIT_001.severity);
       await allure.parameter('Division name', existingDivision.name);
 
@@ -56,9 +56,9 @@ test.describe('Verify an administrator should be able to edit an existing divisi
         // Read through the service rather than the table: an exact-name count
         // is the precise reading of "no new record", and the table can only
         // show what its current filter left behind.
-        expect(await userManagementApi.countDivisionsNamed(renamed)).toBe(1);
+        expect(await userOperationsHubApi.countDivisionsNamed(renamed)).toBe(1);
         expect(
-          await userManagementApi.countDivisionsNamed(existingDivision.name),
+          await userOperationsHubApi.countDivisionsNamed(existingDivision.name),
         ).toBe(0);
       });
     },
@@ -67,7 +67,7 @@ test.describe('Verify an administrator should be able to edit an existing divisi
   test(
     divisionCases.TC_DIV_EDIT_002.title,
     { tag: divisionCases.TC_DIV_EDIT_002.tag },
-    async ({ divisionsPage, userManagementApi, existingDivision }) => {
+    async ({ divisionsPage, userOperationsHubApi, existingDivision }) => {
       await allure.severity(divisionCases.TC_DIV_EDIT_002.severity);
       await allure.parameter('Division name', existingDivision.name);
 
@@ -90,10 +90,10 @@ test.describe('Verify an administrator should be able to edit an existing divisi
         ).toBeVisible();
 
         expect(
-          await userManagementApi.countDivisionsNamed(existingDivision.name),
+          await userOperationsHubApi.countDivisionsNamed(existingDivision.name),
         ).toBe(1);
         expect(
-          await userManagementApi.countDivisionsNamed(
+          await userOperationsHubApi.countDivisionsNamed(
             `${existingDivision.name} abandoned`,
           ),
         ).toBe(0);

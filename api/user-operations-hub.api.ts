@@ -7,13 +7,17 @@ import {
   type DivisionRecord,
   type SectorOption,
 } from '@api/schemas';
-import { userManagementApi as service } from '@config/endpoints';
+import { userOperationsHubApi as service } from '@config/endpoints';
 import type { Division } from '@typings/division.types';
 
 /**
- * The user-management service, for the work a test needs done but is not
- * testing: seeding a precondition, taking back what a test created, and reading
- * what the screen does not show.
+ * The service behind the User Operations Hub, for the work a test needs done
+ * but is not testing: seeding a precondition, taking back what a test created,
+ * and reading what the screen does not show.
+ *
+ * Named for the module it serves rather than for its path, which reads
+ * `/usermg/web/apium/um` — the application calls this area user management
+ * internally and User Operations Hub on screen.
  *
  * Every call is scoped to the company in the bearer token. The service reads
  * `companyPk` from the token and never takes it as an argument, which is what
@@ -23,7 +27,7 @@ import type { Division } from '@typings/division.types';
  * trusted, so a shape that drifts fails here instead of turning into an arrange
  * step that quietly did nothing.
  */
-export class UserManagementApi {
+export class UserOperationsHubApi {
   constructor(private readonly api: APIRequestContext) {}
 
   /** This method returns the full path for one service action. */

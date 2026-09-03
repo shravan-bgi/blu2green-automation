@@ -69,6 +69,27 @@
       "title": "TC_DIV_EDIT_005 | Verify the system-default Corporate Division offers no way to edit it",
       "tag": ["@regression", "@user-operations-hub", "@negative", "@ui"],
       "severity": "critical"
+    },
+
+    "TC_DIV_DELETE_001": {
+      "title": "TC_DIV_DELETE_001 | Verify an administrator can delete a division and see it removed from the division list",
+      "tag": ["@regression", "@user-operations-hub", "@positive", "@ui"],
+      "severity": "critical"
+    },
+    "TC_DIV_DELETE_002": {
+      "title": "TC_DIV_DELETE_002 | Verify cancelling the delete confirmation leaves the division in place",
+      "tag": ["@regression", "@user-operations-hub", "@positive", "@ui"],
+      "severity": "critical"
+    },
+    "TC_DIV_DELETE_003": {
+      "title": "TC_DIV_DELETE_003 | Verify the system-default Corporate Division offers no way to delete it",
+      "tag": ["@regression", "@user-operations-hub", "@negative", "@ui"],
+      "severity": "critical"
+    },
+    "TC_DIV_DELETE_004": {
+      "title": "TC_DIV_DELETE_004 | Verify a deleted division is no longer offered when a department or a user is created",
+      "tag": ["@regression", "@user-operations-hub", "@positive", "@ui"],
+      "severity": "normal"
     }
   }
 }
