@@ -27,6 +27,8 @@ export const sectorListSchema = z.object({
 export const divisionRecordSchema = z
   .object({
     memcompsecdtls_pk: z.number(),
+    /** The company the division belongs to — the tenant boundary. */
+    mcsd_membercompmst_fk: z.number(),
     mcsd_businessunitrefname: z.string(),
     /** Stored as HTML — the rich-text editor wraps plain input in `<p>`. */
     mcsd_bunitdesc: z.string().nullable(),
@@ -55,7 +57,15 @@ export const divisionListingSchema = z.object({
 export const mutationResultSchema = z.object({
   status: z.boolean(),
   message: z.string(),
-  data: z.string(),
+  /**
+   * The affected division's key, as plain base64 — not the XOR obfuscation the
+   * request side uses.
+   *
+   * Optional because a refusal omits it entirely: posting a division with no
+   * name answers `{ status, message }` and no `data` at all. Declaring it
+   * required made the first refusal look like a broken contract.
+   */
+  data: z.string().optional(),
 });
 
 export type SectorOption = z.infer<typeof sectorOptionSchema>;

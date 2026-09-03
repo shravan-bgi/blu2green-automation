@@ -11,7 +11,7 @@ setup(
     await allure.epic('Authentication');
     await allure.feature('Session setup');
 
-    const { tab, identityLoginPage } = await setup.step(
+    const { identityLoginPage } = await setup.step(
       'Open the sign-in page from the home page',
       async () => {
         await homePage.goto();
@@ -26,7 +26,10 @@ setup(
         account.password,
       );
 
-      await expect(tab).toHaveURL(new RegExp(`${routes.dashboard}$`));
+      // Asserted on the dashboard's own tab, not the one sign-in happened in:
+      // when the identity layer routes through the NIBE hub, the application
+      // opens in a further tab and `tab` stays on the hub.
+      await expect(dashboardPage.tab).toHaveURL(new RegExp(`${routes.dashboard}$`));
       await expect(dashboardPage.enterpriseAdministration).toBeVisible();
     });
 

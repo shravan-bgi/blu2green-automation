@@ -68,17 +68,47 @@ export class IdentityLoginPage extends BasePage {
     await this.password.fill(password);
   }
 
-  /** This method submits the sign-in form and returns the dashboard it lands on. */
-  // The identity layer hands back to the application in this same tab, via
-  // /app/nibe-login#enc=<JWT>, which then redirects. No new tab and no platform
-  // hub in between — both existed until September 2026 and were removed.
+  /** This getter returns the control that leaves the NIBE hub for the application. */
+  // The hub renders progressively and this button arrives after the first paint,
+  // so it is only ever waited for by clicking it, never counted.
+  get accessPlatformButton(): Locator {
+    return this.page.getByRole('button', { name: /Access Platform/i }).first();
+  }
+
+  /** This method submits the sign-in form and returns the dashboard it ends on. */
+  // Two landings are possible and this environment has served both, so neither is
+  // assumed. Either the identity layer hands straight back to the application in
+  // this same tab through /app/nibe-login#enc=<JWT>, or it stops at the NIBE
+  // platform hub — and "Access Platform" then opens the application in a further
+  // tab, which is why the dashboard returned here is not always bound to the tab
+  // sign-in happened in.
+  //
+  // The hub and the extra tab both existed until September 2026, were removed,
+  // and came back on 3 September 2026. Racing the two outcomes is what stops the
+  // next reversal breaking every test again.
   async submit(): Promise<DashboardPage> {
     await this.loginButton.click();
 
-    const dashboard = new DashboardPage(this.page);
+    await this.page.waitForURL((url) => !url.toString().includes('/demoapp/login/'), {
+      timeout: 90_000,
+    });
+
+    const applicationTab = this.page.url().includes('nibe.businessgateways.com')
+      ? await this.leaveHub()
+      : this.page;
+
+    const dashboard = new DashboardPage(applicationTab);
     await dashboard.waitUntilReady();
 
     return dashboard;
+  }
+
+  /** This method leaves the NIBE hub and returns the tab the application opens in. */
+  private async leaveHub(): Promise<Page> {
+    const opened = this.page.context().waitForEvent('page');
+    await this.accessPlatformButton.click();
+
+    return opened;
   }
 
   /** This method signs in and returns the dashboard that follows. */

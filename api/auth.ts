@@ -57,3 +57,31 @@ export function bearerToken(): string {
 
   return `Bearer ${token}`;
 }
+
+/** The claims the application's own token carries. */
+export type TokenClaims = {
+  /** The company every service call is scoped to. */
+  companyPk: number;
+  exp: number;
+  iat: number;
+};
+
+/** This function returns the claims inside the saved session's token. */
+// The service never takes a company as an argument — it reads one from the
+// token — so this is the only way a test can know which company it is entitled
+// to see, and therefore the only way to assert that it sees no other.
+export function tokenClaims(): TokenClaims {
+  const payload = bearerToken().replace('Bearer ', '').split('.')[1] ?? '';
+
+  return JSON.parse(Buffer.from(payload, 'base64').toString('utf8')) as TokenClaims;
+}
+
+/** This function returns a bearer token whose signature has been corrupted. */
+// The header and payload are left intact so that only the signature check can
+// reject it. A token that were malformed throughout would prove far less: it
+// could be turned away by a parser before authentication was ever attempted.
+export function tamperedBearerToken(): string {
+  const [header, payload] = bearerToken().replace('Bearer ', '').split('.');
+
+  return `Bearer ${header}.${payload}.not-the-real-signature`;
+}

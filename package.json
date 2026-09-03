@@ -6,9 +6,10 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings=0",
-    "test": "playwright test --project=chromium --grep-invert @quarantine --pass-with-no-tests",
-    "test:smoke": "playwright test --project=chromium --grep @smoke --grep-invert @quarantine --pass-with-no-tests",
-    "test:regression": "playwright test --project=chromium --grep @regression --grep-invert @quarantine --pass-with-no-tests",
+    "test": "playwright test --project=chromium --project=api --grep-invert @quarantine --pass-with-no-tests",
+    "test:api": "playwright test --project=api --grep-invert @quarantine --pass-with-no-tests",
+    "test:smoke": "playwright test --project=chromium --project=api --grep @smoke --grep-invert @quarantine --pass-with-no-tests",
+    "test:regression": "playwright test --project=chromium --project=api --grep @regression --grep-invert @quarantine --pass-with-no-tests",
     "test:cross-browser": "playwright test --project=firefox --project=webkit --grep-invert @quarantine --pass-with-no-tests",
     "test:quarantine": "playwright test --project=chromium --grep @quarantine --pass-with-no-tests",
     "test:debug": "playwright test --ui",

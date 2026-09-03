@@ -90,6 +90,90 @@
       "title": "TC_DIV_DELETE_004 | Verify a deleted division is no longer offered when a department or a user is created",
       "tag": ["@regression", "@user-operations-hub", "@positive", "@ui"],
       "severity": "normal"
+    },
+
+    "TC_DIVAPI_001": {
+      "title": "TC_DIVAPI_001 | Verify a request with no Authorization header is refused the company's divisions",
+      "tag": ["@smoke", "@user-operations-hub", "@negative", "@api"],
+      "severity": "blocker"
+    },
+    "TC_DIVAPI_002": {
+      "title": "TC_DIVAPI_002 | Verify a token whose signature has been tampered with is refused",
+      "tag": ["@regression", "@user-operations-hub", "@negative", "@api"],
+      "severity": "blocker"
+    },
+    "TC_DIVAPI_003": {
+      "title": "TC_DIVAPI_003 | Verify the division listing returns only the divisions of the token's own company",
+      "tag": ["@regression", "@user-operations-hub", "@positive", "@api"],
+      "severity": "critical"
+    },
+    "TC_DIVAPI_004": {
+      "_note": "Quarantined against a live defect, not a flaky test. Creating four divisions at once on 2026-09-03 produced DIV-10111-306, DIV-10111-306, DIV-10111-308, DIV-10111-309 — two rows sharing one Division ID, with 307 skipped, which is the signature of a read-modify-write race in reference-number generation. It reproduces on demand. Un-quarantine when the product fixes ID generation; do not delete or skip it.",
+      "title": "TC_DIVAPI_004 | Verify divisions created at the same moment are each given a distinct Division ID",
+      "tag": [
+        "@regression",
+        "@user-operations-hub",
+        "@positive",
+        "@api",
+        "@quarantine"
+      ],
+      "severity": "blocker"
+    },
+    "TC_DIVAPI_005": {
+      "title": "TC_DIVAPI_005 | Verify a division with no name is refused by the server and not only by the form",
+      "tag": ["@regression", "@user-operations-hub", "@negative", "@api"],
+      "severity": "critical"
+    },
+    "TC_DIVAPI_006": {
+      "title": "TC_DIVAPI_006 | Verify a search matching nothing returns an empty result rather than everything",
+      "tag": ["@regression", "@user-operations-hub", "@negative", "@api"],
+      "severity": "critical"
+    },
+    "TC_DIVAPI_007": {
+      "title": "TC_DIVAPI_007 | Verify punctuation, quotes and very long search terms are treated literally and never error",
+      "tag": ["@regression", "@user-operations-hub", "@negative", "@api"],
+      "severity": "critical"
+    },
+    "TC_DIVAPI_008": {
+      "title": "TC_DIVAPI_008 | Verify removing the same division twice is safe and reports the second attempt honestly",
+      "tag": ["@regression", "@user-operations-hub", "@negative", "@api"],
+      "severity": "critical"
+    },
+    "TC_DIVAPI_009": {
+      "title": "TC_DIVAPI_009 | Verify the division listing answers as JSON in the shape its consumers rely on",
+      "tag": ["@smoke", "@user-operations-hub", "@positive", "@api"],
+      "severity": "blocker"
+    },
+    "TC_DIVAPI_010": {
+      "title": "TC_DIVAPI_010 | Verify the sector list answers as JSON in the shape the division form relies on",
+      "tag": ["@regression", "@user-operations-hub", "@positive", "@api"],
+      "severity": "critical"
+    },
+
+    "TC_DIVSEARCH_001": {
+      "title": "TC_DIVSEARCH_001 | Verify searching a division by name shows that division and nothing else",
+      "tag": ["@smoke", "@user-operations-hub", "@positive", "@ui"],
+      "severity": "blocker"
+    },
+    "TC_DIVSEARCH_002": {
+      "title": "TC_DIVSEARCH_002 | Verify searching by the system-generated Division ID finds the same division",
+      "tag": ["@regression", "@user-operations-hub", "@positive", "@ui"],
+      "severity": "critical"
+    },
+    "TC_DIVSEARCH_003": {
+      "title": "TC_DIVSEARCH_003 | Verify searching from a later page of results shows the matches rather than the page that was open",
+      "tag": ["@smoke", "@user-operations-hub", "@positive", "@ui"],
+      "severity": "blocker"
+    },
+    "TC_DIVSEARCH_004": {
+      "title": "TC_DIVSEARCH_004 | Verify clearing the search brings the whole division list back",
+      "tag": ["@smoke", "@user-operations-hub", "@positive", "@ui"],
+      "severity": "critical"
+    },
+    "TC_DIVSEARCH_005": {
+      "title": "TC_DIVSEARCH_005 | Verify a search matching no division says so instead of showing a stale list",
+      "tag": ["@regression", "@user-operations-hub", "@negative", "@ui"],
+      "severity": "critical"
     }
   }
 }

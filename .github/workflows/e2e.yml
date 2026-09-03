@@ -46,7 +46,7 @@ jobs:
   # Tier 2 — pull requests. Smoke only, so PR feedback stays inside the window a
   # reviewer will actually wait for.
   smoke:
-    name: Smoke (chromium)
+    name: Smoke (chromium + api)
     if: github.event_name == 'pull_request'
     needs: static
     runs-on: ubuntu-latest
@@ -64,6 +64,7 @@ jobs:
         run: >-
           npx playwright test
           --project=chromium
+          --project=api
           --grep @smoke
           --grep-invert @quarantine
           --shard=${{ matrix.shard }}/3
@@ -87,7 +88,7 @@ jobs:
 
   # Tier 3 — merge to main, nightly, and on demand. The whole suite.
   full:
-    name: Full suite (chromium)
+    name: Full suite (chromium + api)
     if: github.event_name != 'pull_request'
     needs: static
     runs-on: ubuntu-latest
@@ -106,6 +107,7 @@ jobs:
         run: >-
           npx playwright test
           --project=chromium
+          --project=api
           --grep-invert @quarantine
           --shard=${{ matrix.shard }}/3
           --fail-on-flaky-tests
@@ -176,6 +178,7 @@ jobs:
         run: >-
           npx playwright test
           --project=chromium
+          --project=api
           --grep @quarantine
           --pass-with-no-tests
 

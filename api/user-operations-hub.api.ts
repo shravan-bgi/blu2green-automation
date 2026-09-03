@@ -4,7 +4,9 @@ import {
   divisionListingSchema,
   mutationResultSchema,
   sectorListSchema,
+  type DivisionListing,
   type DivisionRecord,
+  type MutationResult,
   type SectorOption,
 } from '@api/schemas';
 import { userOperationsHubApi as service } from '@config/endpoints';
@@ -79,15 +81,19 @@ export class UserOperationsHubApi {
     return match.secpk;
   }
 
-  /** This method returns the divisions belonging to this company. */
+  /** This method returns one page of the division listing, total included. */
   // `search` matches Division ID or Division Name, the same field the listing's
-  // search box fills. Left empty it returns the first page of all of them, which
-  // is why a caller that cares about one division passes its name.
-  async listDivisions(search = '', limit = 100): Promise<DivisionRecord[]> {
+  // search box fills. The whole envelope is returned rather than just the rows,
+  // because the total is what says whether a filter narrowed anything.
+  async divisionListing(
+    search = '',
+    limit = 100,
+    page = 0,
+  ): Promise<DivisionListing> {
     const response = await this.api.post(this.url(service.divisionListing), {
       data: {
         Limit: limit,
-        Page: 0,
+        Page: page,
         search_Filter: '',
         search_Division: '',
         search_overall: search,
@@ -95,8 +101,12 @@ export class UserOperationsHubApi {
       },
     });
 
-    return (await this.parse(service.divisionListing, response, divisionListingSchema))
-      .data;
+    return this.parse(service.divisionListing, response, divisionListingSchema);
+  }
+
+  /** This method returns the divisions belonging to this company. */
+  async listDivisions(search = '', limit = 100): Promise<DivisionRecord[]> {
+    return (await this.divisionListing(search, limit)).data;
   }
 
   /** This method returns one division by its exact name. */
@@ -115,6 +125,18 @@ export class UserOperationsHubApi {
     return (await this.listDivisions(name)).filter(
       (division) => division.mcsd_businessunitrefname === name,
     ).length;
+  }
+
+  /** This method posts a division payload exactly as given and returns the outcome. */
+  // Untyped on purpose. `createDivision` below cannot express a division with no
+  // name, which is the whole point of the tests that ask whether the server
+  // enforces what the form does — so those need a way past the type.
+  async postDivision(payload: Record<string, unknown>): Promise<MutationResult> {
+    const response = await this.api.post(this.url(service.addDivision), {
+      data: { data: payload },
+    });
+
+    return this.parse(service.addDivision, response, mutationResultSchema);
   }
 
   /** This method creates a division and returns its primary key. */
@@ -140,7 +162,7 @@ export class UserOperationsHubApi {
     // Everything answers 200, refusals included, so `status` is the only thing
     // that says whether a division was made. A seeding step that silently did
     // nothing is worse than one that fails.
-    if (!result.status) {
+    if (!result.status || !result.data) {
       throw new Error(
         `Could not seed a division named "${division.name}": ${result.message || 'the service refused it'}.`,
       );
@@ -155,12 +177,15 @@ export class UserOperationsHubApi {
   // action can't be undone." Callers must pass a key they got from creating the
   // division or resolved from an exact name — never one found by a filter or by
   // "whatever is newest".
-  async deleteDivision(pk: number): Promise<void> {
+  async deleteDivision(pk: number): Promise<MutationResult> {
     const response = await this.api.post(this.url(service.deactivateDivision), {
       data: { divpk: obfuscate(pk) },
     });
 
-    await this.parse(service.deactivateDivision, response, mutationResultSchema);
+    // The outcome is returned rather than swallowed: teardown ignores it, but a
+    // test asking whether deleting twice is safe needs to see what the second
+    // attempt actually said.
+    return this.parse(service.deactivateDivision, response, mutationResultSchema);
   }
 
   /** This method removes a division by name if it is there, and reports whether it was. */

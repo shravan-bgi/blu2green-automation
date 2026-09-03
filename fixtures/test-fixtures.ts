@@ -1,5 +1,5 @@
-import { test as base, expect } from '@playwright/test';
-import { bearerToken } from '@api/auth';
+import { test as base, expect, type APIRequestContext } from '@playwright/test';
+import { bearerToken, tamperedBearerToken } from '@api/auth';
 import { UserOperationsHubApi } from '@api/user-operations-hub.api';
 import { environment } from '@config/environment';
 import { createPool, type Pool } from '@db/client';
@@ -49,6 +49,18 @@ type TestFixtures = {
 
   /** A division that already exists, created through the API for this test alone. */
   existingDivision: Division;
+
+  /**
+   * A signed-in request context, for asserting the things the typed client
+   * hides — status codes, response headers, and raw bodies.
+   */
+  authenticatedApi: APIRequestContext;
+
+  /** A request context carrying no credentials at all, for the auth boundary. */
+  anonymousApi: APIRequestContext;
+
+  /** A request context carrying a token whose signature has been corrupted. */
+  tamperedApi: APIRequestContext;
 };
 
 // No `identityLoginPage` fixture: the identity layer 404s on direct navigation,
@@ -88,10 +100,10 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await use(new DivisionsPage(page));
   },
 
-  /** This fixture provides the User Operations Hub service, signed in and disposed afterwards. */
+  /** This fixture provides a signed-in request context. */
   // The token is read at request time rather than baked into the config, so
   // nothing here holds a credential that can go stale between runs.
-  userOperationsHubApi: async ({ playwright }, use) => {
+  authenticatedApi: async ({ playwright }, use) => {
     const context = await playwright.request.newContext({
       baseURL: environment.baseURL,
       extraHTTPHeaders: {
@@ -103,8 +115,16 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       },
     });
 
-    await use(new UserOperationsHubApi(context));
+    await use(context);
     await context.dispose();
+  },
+
+  /** This fixture provides the User Operations Hub service, signed in. */
+  // Built on the same context the raw fixture hands out, so a contract test
+  // asserting headers and a journey test seeding data are talking to the service
+  // through exactly one configuration.
+  userOperationsHubApi: async ({ authenticatedApi }, use) => {
+    await use(new UserOperationsHubApi(authenticatedApi));
   },
 
   /** This fixture generates the details for one division and removes it afterwards. */
@@ -140,6 +160,37 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await use(division);
 
     await userOperationsHubApi.deleteDivision(pk);
+  },
+
+  /** This fixture provides a request context with no Authorization header. */
+  // Deliberately identical to the signed-in context but for the credential, so a
+  // test using it is asking exactly one question: does authentication matter here.
+  anonymousApi: async ({ playwright }, use) => {
+    const context = await playwright.request.newContext({
+      baseURL: environment.baseURL,
+      extraHTTPHeaders: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/plain, */*',
+      },
+    });
+
+    await use(context);
+    await context.dispose();
+  },
+
+  /** This fixture provides a request context whose token signature is corrupted. */
+  tamperedApi: async ({ playwright }, use) => {
+    const context = await playwright.request.newContext({
+      baseURL: environment.baseURL,
+      extraHTTPHeaders: {
+        Authorization: tamperedBearerToken(),
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/plain, */*',
+      },
+    });
+
+    await use(context);
+    await context.dispose();
   },
 });
 

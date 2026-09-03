@@ -68,20 +68,33 @@ export default defineConfig({
     // is written, and every test runs signed out. See the npm scripts.
     { name: 'setup', testMatch: /setup[\\/]auth\.setup\.ts/ },
 
+    // The API specs, which drive no browser at all. Playwright launches one only
+    // for a test that asks for `page`, so these run without it — but the project
+    // still depends on setup, because that is what leaves a session on disk for
+    // the bearer token to be read out of.
+    {
+      name: 'api',
+      testMatch: /tests[\\/]api[\\/].*\.spec\.ts/,
+      dependencies: ['setup'],
+    },
+
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'], storageState: environment.storageState },
       dependencies: ['setup'],
+      testIgnore: /tests[\\/]api[\\/]/,
     },
     {
       name: 'firefox',
       use: { ...devices['Desktop Firefox'], storageState: environment.storageState },
       dependencies: ['setup'],
+      testIgnore: /tests[\\/]api[\\/]/,
     },
     {
       name: 'webkit',
       use: { ...devices['Desktop Safari'], storageState: environment.storageState },
       dependencies: ['setup'],
+      testIgnore: /tests[\\/]api[\\/]/,
     },
   ],
 });

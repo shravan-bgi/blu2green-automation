@@ -1,6 +1,6 @@
 import type { Locator } from '@playwright/test';
 import { expect } from '@playwright/test';
-import { routes } from '@config/endpoints';
+import { routes, userOperationsHubApi as service } from '@config/endpoints';
 import { BasePage } from '@pages/base.page';
 import { DivisionFormPage } from '@pages/user-operations-hub/divisions/division-form.page';
 import { DepartmentsPage } from '@pages/user-operations-hub/departments/departments.page';
@@ -127,6 +127,20 @@ export class DivisionsPage extends BasePage {
     return this.dialog.getByRole('button', { name: 'OK', exact: true });
   }
 
+  /** This getter returns the row the table shows when nothing matches. */
+  get emptyState(): Locator {
+    return this.page.getByText(/No records found/i);
+  }
+
+  /** This getter returns the paginator's Next page button. */
+  // Scoped like the range label: the page renders the paginator twice for its
+  // responsive layouts, so an unscoped match is a strict-mode violation.
+  get nextPageButton(): Locator {
+    return this.page
+      .locator('mat-paginator.custom-paginator')
+      .getByRole('button', { name: /Next page/i });
+  }
+
   /** This getter returns the paginator's range label, when the table has one. */
   // Scoped to `.custom-paginator`: the page renders the same paginator twice for
   // its responsive layouts, and an unscoped match is a strict-mode violation. The
@@ -154,9 +168,35 @@ export class DivisionsPage extends BasePage {
     await this.totalDivisionsTile.waitFor({ timeout: 60_000 });
   }
 
-  /** This method filters the table down to one division. */
+  /** This method filters the table down to the divisions matching a term. */
+  // Enter is what runs the search — filling the box alone changes nothing, and
+  // the magnifying-glass button beside it does nothing either. Clearing works
+  // the same way: emptying the box does not restore the full list until Enter
+  // is pressed, which is why `clearSearch` presses it too.
   async search(term: string): Promise<void> {
     await this.searchField.fill(term);
+
+    // The listing call Enter sets off is waited for, so this method's contract is
+    // true when it returns rather than moments later. Without it a caller reads
+    // the table mid-reload and sees the rows the search was meant to replace.
+    const listing = this.page.waitForResponse(
+      (response) => response.url().includes(service.divisionListing),
+      { timeout: 60_000 },
+    );
+
+    await this.searchField.press('Enter');
+    await listing;
+
+    // The box is checked afterwards because it is the term the component sent,
+    // not the one that was typed, that decides what comes back — and a re-render
+    // landing between the fill and the Enter empties it, which shows up as a
+    // search that quietly returned everything.
+    await expect(this.searchField).toHaveValue(term);
+  }
+
+  /** This method clears the search so the table shows every division again. */
+  async clearSearch(): Promise<void> {
+    await this.search('');
   }
 
   /** This method returns how many divisions the table holds, across every page. */
