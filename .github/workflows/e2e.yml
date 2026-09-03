@@ -220,6 +220,7 @@ jobs:
       skipped: ${{ steps.counts.outputs.skipped }}
       total: ${{ steps.counts.outputs.total }}
       duration: ${{ steps.counts.outputs.duration }}
+      completed: ${{ steps.counts.outputs.completed }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -263,6 +264,15 @@ jobs:
           else
             HUMAN="${SECS}s"
           fi
+
+          # Stamped once, here, and read from this output by both the run summary
+          # and the email, so the two can never disagree about when a run
+          # happened. Runners keep UTC and the people reading this do not; Oman
+          # observes no DST, so the offset never moves. Printing %z is what makes
+          # the fallback safe — a runner image without this zone degrades to an
+          # honest "+0000" rather than to a local time that is silently four
+          # hours wrong.
+          COMPLETED=$(TZ='Asia/Muscat' date '+%d %b %Y %H:%M %z')
           {
             echo "passed=$P"
             echo "failed=$F"
@@ -270,8 +280,38 @@ jobs:
             echo "skipped=$S"
             echo "total=$((P + F + K + S))"
             echo "duration=$HUMAN"
+            echo "completed=$COMPLETED"
           } >> "$GITHUB_OUTPUT"
           echo "Merged totals: $P passed, $F failed, $K flaky, $S skipped in $HUMAN"
+
+      # Actions gives a run no timestamp that a workflow can read back, and
+      # expressions have no date function, so `run-name` cannot carry one. This
+      # summary renders at the top of the run page and is the one place a run can
+      # say when it happened, in the timezone of whoever is reading it.
+      #
+      # Written from the merged counts rather than per-shard, so it agrees with
+      # the email that quotes the same numbers.
+      - name: Write the run summary
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          T_PASSED: ${{ steps.counts.outputs.passed }}
+          T_FAILED: ${{ steps.counts.outputs.failed }}
+          T_FLAKY: ${{ steps.counts.outputs.flaky }}
+          T_SKIPPED: ${{ steps.counts.outputs.skipped }}
+          T_DURATION: ${{ steps.counts.outputs.duration }}
+          T_COMPLETED: ${{ steps.counts.outputs.completed }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## E2E Tests — ${T_COMPLETED:-unknown}"
+            echo
+            echo "| Passed | Failed | Flaky | Skipped | Duration |"
+            echo "| --- | --- | --- | --- | --- |"
+            echo "| ${T_PASSED:-0} | ${T_FAILED:-0} | ${T_FLAKY:-0} | ${T_SKIPPED:-0} | ${T_DURATION:-unknown} |"
+            echo
+            echo "Branch \`${GITHUB_REF_NAME}\` · ${GITHUB_EVENT_NAME} · run #${GITHUB_RUN_NUMBER}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Download Allure results
         uses: actions/download-artifact@v7
@@ -397,6 +437,7 @@ jobs:
           T_SKIPPED: ${{ needs.report.outputs.skipped }}
           T_TOTAL: ${{ needs.report.outputs.total }}
           T_DURATION: ${{ needs.report.outputs.duration }}
+          T_COMPLETED: ${{ needs.report.outputs.completed }}
         run: |
           set -euo pipefail
 
@@ -404,6 +445,13 @@ jobs:
           T_PASSED=${T_PASSED:-0}; T_FAILED=${T_FAILED:-0}
           T_FLAKY=${T_FLAKY:-0};   T_SKIPPED=${T_SKIPPED:-0}
           T_TOTAL=${T_TOTAL:-0};   T_DURATION=${T_DURATION:-unknown}
+
+          # Stamped by the report job so the mail and the run summary quote the
+          # same moment. Only a failure mail can arrive without one — a run that
+          # never reached reporting sends no pass mail at all — and it falls back
+          # to the time the mail itself was built, which is the closest thing to
+          # the truth still available.
+          T_COMPLETED=${T_COMPLETED:-$(TZ='Asia/Muscat' date '+%d %b %Y %H:%M %z')}
 
           # Read off the tier results rather than the workflow's own status: most
           # triggers skip whole tiers, and neither success() nor failure() can
@@ -432,14 +480,20 @@ jobs:
           fi
 
           # One fixed shape, pass or fail. A predictable subject is what inbox
-          # rules and sorting depend on, and at 33 characters it survives a phone
-          # preview with the status word still visible. ASCII only: subject
-          # headers are MIME-encoded and older clients render a stray middle dot
-          # as a question mark.
+          # rules and sorting depend on. The status word stays inside the first 33
+          # characters so it survives a phone preview; the timestamp goes after it
+          # precisely because it is the half that can afford to be truncated —
+          # every mail client shows its own received time anyway, and what this
+          # one adds is the run's time in Oman rather than the reader's.
+          #
+          # ASCII only, and a numeric offset rather than a zone abbreviation:
+          # subject headers are MIME-encoded and older clients render a stray
+          # middle dot as a question mark, while "GST" is ambiguous in a way that
+          # "+0400" is not.
           if [ "$ANY_FAILED" = true ]; then
-            SUBJECT="[blu2green] Commit ${COMMIT:0:7} Failed"
+            SUBJECT="[blu2green] Commit ${COMMIT:0:7} Failed - $T_COMPLETED"
           else
-            SUBJECT="[blu2green] Commit ${COMMIT:0:7} Passed"
+            SUBJECT="[blu2green] Commit ${COMMIT:0:7} Passed - $T_COMPLETED"
           fi
 
           # Traces, screenshots and video are `on-first-retry` in CI, so a run
@@ -545,6 +599,7 @@ jobs:
           $(detail "Trigger" "$TRIGGER, by $ACTOR")
           $(detail "Run" "#$RUN_NUMBER")
           $(detail "Duration" "$T_DURATION")
+          $(detail "Completed" "$T_COMPLETED")
           </table>
           </td></tr>
 
@@ -583,6 +638,7 @@ jobs:
             Commit    $COMMIT
             Trigger   $TRIGGER, by $ACTOR
             Run       #$RUN_NUMBER
+            Completed $T_COMPLETED
 
           $ARTIFACTS
 
