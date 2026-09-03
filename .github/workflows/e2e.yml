@@ -1,5 +1,24 @@
 name: E2E Tests
 
+# A push borrows its commit message for the run name and a pull request its title,
+# but a schedule and a dispatch have neither, so both fall back to the workflow's
+# own name — which is why every nightly sits in the run list as another
+# indistinguishable row reading "E2E Tests".
+#
+# Empty for push and pull_request on purpose: a whitespace-only `run-name` is
+# documented to fall back to the event's own default, and the commit subject is a
+# better name than anything that could be spelled out here. Borrowing the message
+# instead would be worse than the default rather than better — the default takes
+# the subject line, while `head_commit.message` is the whole body, and the commit
+# subjects in this repository run to several paragraphs.
+#
+# Named by what the tier is rather than which browsers are in it, so the matrix
+# can change without leaving a lie in the run list.
+run-name: >-
+  ${{ (github.event_name == 'schedule' && 'Nightly · full suite + cross-browser')
+  || (github.event_name == 'workflow_dispatch' && format('Manual · {0} · @{1}', github.ref_name, github.actor))
+  || '' }}
+
 # Runs against a shared, always-on demo environment. Nothing to build or start.
 on:
   push:
