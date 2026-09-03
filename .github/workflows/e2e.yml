@@ -1,5 +1,24 @@
 name: E2E Tests
 
+# A push borrows its commit message for the run name and a pull request its title,
+# but a schedule and a dispatch have neither, so both fall back to the workflow's
+# own name — which is why every nightly sits in the run list as another
+# indistinguishable row reading "E2E Tests".
+#
+# Empty for push and pull_request on purpose: a whitespace-only `run-name` is
+# documented to fall back to the event's own default, and the commit subject is a
+# better name than anything that could be spelled out here. Borrowing the message
+# instead would be worse than the default rather than better — the default takes
+# the subject line, while `head_commit.message` is the whole body, and the commit
+# subjects in this repository run to several paragraphs.
+#
+# Named by what the tier is rather than which browsers are in it, so the matrix
+# can change without leaving a lie in the run list.
+run-name: >-
+  ${{ (github.event_name == 'schedule' && 'Nightly · full suite + cross-browser')
+  || (github.event_name == 'workflow_dispatch' && format('Manual · {0} · @{1}', github.ref_name, github.actor))
+  || '' }}
+
 # Runs against a shared, always-on demo environment. Nothing to build or start.
 on:
   push:
@@ -201,6 +220,8 @@ jobs:
       skipped: ${{ steps.counts.outputs.skipped }}
       total: ${{ steps.counts.outputs.total }}
       duration: ${{ steps.counts.outputs.duration }}
+      completed: ${{ steps.counts.outputs.completed }}
+      completed_short: ${{ steps.counts.outputs.completed_short }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -244,6 +265,24 @@ jobs:
           else
             HUMAN="${SECS}s"
           fi
+
+          # Stamped once, here, and read from this output by both the run summary
+          # and the email, so the two can never disagree about when a run
+          # happened. Runners keep UTC and the people reading this do not; Oman
+          # observes no DST, so the offset never moves. Printing %z is what makes
+          # the fallback safe — a runner image without this zone degrades to an
+          # honest "+0000" rather than to a local time that is silently four
+          # hours wrong.
+          # Formatted twice from one epoch rather than by calling `date` twice,
+          # which could straddle a minute boundary and put two different times on
+          # one run. The short form is for the subject, where every reader is in
+          # the same timezone and the offset only spends characters; the long form
+          # carries it, because in the body there is room to be unambiguous and
+          # %z is what keeps the fallback honest — a runner image without this
+          # zone then reads "+0000" instead of passing UTC off as local time.
+          NOW=$(date +%s)
+          COMPLETED=$(TZ='Asia/Muscat' date -d "@$NOW" '+%d %b %Y %I:%M %p %z')
+          COMPLETED_SHORT=$(TZ='Asia/Muscat' date -d "@$NOW" '+%d %b %Y %I:%M %p')
           {
             echo "passed=$P"
             echo "failed=$F"
@@ -251,8 +290,39 @@ jobs:
             echo "skipped=$S"
             echo "total=$((P + F + K + S))"
             echo "duration=$HUMAN"
+            echo "completed=$COMPLETED"
+            echo "completed_short=$COMPLETED_SHORT"
           } >> "$GITHUB_OUTPUT"
           echo "Merged totals: $P passed, $F failed, $K flaky, $S skipped in $HUMAN"
+
+      # Actions gives a run no timestamp that a workflow can read back, and
+      # expressions have no date function, so `run-name` cannot carry one. This
+      # summary renders at the top of the run page and is the one place a run can
+      # say when it happened, in the timezone of whoever is reading it.
+      #
+      # Written from the merged counts rather than per-shard, so it agrees with
+      # the email that quotes the same numbers.
+      - name: Write the run summary
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          T_PASSED: ${{ steps.counts.outputs.passed }}
+          T_FAILED: ${{ steps.counts.outputs.failed }}
+          T_FLAKY: ${{ steps.counts.outputs.flaky }}
+          T_SKIPPED: ${{ steps.counts.outputs.skipped }}
+          T_DURATION: ${{ steps.counts.outputs.duration }}
+          T_COMPLETED: ${{ steps.counts.outputs.completed }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## E2E Tests — ${T_COMPLETED:-unknown}"
+            echo
+            echo "| Passed | Failed | Flaky | Skipped | Duration |"
+            echo "| --- | --- | --- | --- | --- |"
+            echo "| ${T_PASSED:-0} | ${T_FAILED:-0} | ${T_FLAKY:-0} | ${T_SKIPPED:-0} | ${T_DURATION:-unknown} |"
+            echo
+            echo "Branch \`${GITHUB_REF_NAME}\` · ${GITHUB_EVENT_NAME} · run #${GITHUB_RUN_NUMBER}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Download Allure results
         uses: actions/download-artifact@v7
@@ -321,24 +391,34 @@ jobs:
           path: playwright-report/
           retention-days: 14
 
-  # Scheduled and manual runs only. GitHub's own notification already covers push
-  # and PR, and covers them better — but it goes to whoever triggered a run, and
-  # a cron has no trigger, so it falls back to whoever last edited this file.
-  # A daily readiness alert needs a deliberate recipient, not an incidental one.
-  notify-failure:
-    name: Email on failure
+  # Scheduled and manual runs only, pass or fail. GitHub's own notification
+  # already covers push and PR, and covers them better — but it goes to whoever
+  # triggered a run, and a cron has no trigger, so it falls back to whoever last
+  # edited this file. A daily readiness alert needs a deliberate recipient, not
+  # an incidental one.
+  #
+  # It has to arrive on a green night too. GitHub mails nothing whatsoever when a
+  # run passes, so an empty inbox means either "the suite is green" or "the cron
+  # never fired", and nothing distinguishes the two. One mail a night either way
+  # is what makes a missing one worth noticing.
+  notify:
+    name: Email the result
     # `quarantine` absent on purpose: non-blocking, so its failures are expected.
     needs: [static, smoke, full, cross-browser, report]
-    # `contains` rather than `failure()`: most triggers skip tiers, and
-    # `failure()` cannot tell skipped from failed.
+    # No `contains(needs.*.result, 'failure')` gate any more: a passing run has to
+    # reach this job as well, so which mail to send — or whether to send one at
+    # all — is decided in the step below, where skipped, cancelled and failed can
+    # be told apart. `always()`, or a failure in any tier would skip the very job
+    # that reports it.
     if: >-
-      ${{ always() && contains(needs.*.result, 'failure')
+      ${{ always()
       && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      # Built in shell rather than inline in `with:` — one row function beats the
-      # same status conditional written out five times.
+      # Both bodies are built in shell rather than inline in `with:` — one row
+      # function beats the same status conditional written out five times, and a
+      # `${{ }}` expression cannot see which outcome the shell decided on.
       #
       # Tables and inline styles are not stylistic. This mail is read in Windows
       # Live Mail, which renders through the Word engine: no flexbox, no grid,
@@ -362,12 +442,15 @@ jobs:
           COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
           TRIGGER: ${{ github.event_name }}
           ACTOR: ${{ github.actor }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           T_PASSED: ${{ needs.report.outputs.passed }}
           T_FAILED: ${{ needs.report.outputs.failed }}
           T_FLAKY: ${{ needs.report.outputs.flaky }}
           T_SKIPPED: ${{ needs.report.outputs.skipped }}
           T_TOTAL: ${{ needs.report.outputs.total }}
           T_DURATION: ${{ needs.report.outputs.duration }}
+          T_COMPLETED: ${{ needs.report.outputs.completed }}
+          T_COMPLETED_SHORT: ${{ needs.report.outputs.completed_short }}
         run: |
           set -euo pipefail
 
@@ -376,32 +459,120 @@ jobs:
           T_FLAKY=${T_FLAKY:-0};   T_SKIPPED=${T_SKIPPED:-0}
           T_TOTAL=${T_TOTAL:-0};   T_DURATION=${T_DURATION:-unknown}
 
-          JOBS_FAILED=0
+          # Stamped by the report job so the mail and the run summary quote the
+          # same moment. Only a failure mail can arrive without one — a run that
+          # never reached reporting sends no pass mail at all — and it falls back
+          # to the time the mail itself was built, which is the closest thing to
+          # the truth still available.
+          T_COMPLETED=${T_COMPLETED:-$(TZ='Asia/Muscat' date '+%d %b %Y %I:%M %p %z')}
+          T_COMPLETED_SHORT=${T_COMPLETED_SHORT:-$(TZ='Asia/Muscat' date '+%d %b %Y %I:%M %p')}
+
+          # Read off the tier results rather than the workflow's own status: most
+          # triggers skip whole tiers, and neither success() nor failure() can
+          # tell a skipped tier from a broken one.
+          ANY_FAILED=false
+          ANY_CANCELLED=false
           for r in "$R_STATIC" "$R_SMOKE" "$R_FULL" "$R_CROSS" "$R_REPORT"; do
-            [ "$r" = "failure" ] && JOBS_FAILED=$((JOBS_FAILED + 1))
+            case "$r" in
+              failure)   ANY_FAILED=true ;;
+              cancelled) ANY_CANCELLED=true ;;
+            esac
           done
 
-          # One fixed shape, whatever went wrong. A predictable subject is what
-          # inbox rules and sorting depend on, and at 33 characters it survives a
-          # phone preview with the status word still visible. ASCII only: subject
-          # headers are MIME-encoded and older clients render a stray middle dot
-          # as a question mark.
-          SUBJECT="[blu2green] Commit ${COMMIT:0:7} Failed"
+          # Nothing broke, but nothing was counted either: the run was called off,
+          # or a newer one replaced it. A green mail with no numbers behind it
+          # would claim more than is known, and whoever stopped the run already
+          # knows they did — so this is the one outcome that sends no mail at all.
+          # A failure outranks it: a tier that broke before the run was called off
+          # is still the news, which is why this is reached only when none did.
+          if [ "$ANY_FAILED" = false ]; then
+            if [ "$ANY_CANCELLED" = true ] || [ "$R_REPORT" != "success" ]; then
+              echo "send=false" >> "$GITHUB_OUTPUT"
+              echo "Nothing failed, and no results were collected. No mail sent."
+              exit 0
+            fi
+          fi
 
-          # Which kind of failure it was lives in the headline instead. Three
-          # different stories, and conflating them misleads: counts exist only
-          # once the report job finishes, so if it was cancelled tests may well
-          # have run and failed, and "no tests ran" would be wrong rather than
-          # merely vague.
-          if [ "$R_REPORT" != "success" ]; then
-            HEADLINE="Test results unavailable"
-            SUMMARY="The reporting step did not finish, so per-test counts could not be collected. Open the run to see what happened."
-          elif [ "$T_TOTAL" -eq 0 ]; then
-            HEADLINE="No tests ran"
-            SUMMARY="The suite failed before running anything &mdash; usually a config, dependency or environment fault rather than a broken test."
+          # The trigger names the run. "Which run was this" is the first question
+          # a subject has to answer, and the word that answers it is the one an
+          # inbox rule can sort on — where "Commit" answered nothing, since every
+          # mail carried it. PR carries its number too: a pull request gets a run
+          # per push, so the number is what groups them.
+          case "$TRIGGER" in
+            schedule)          TIER="Nightly" ;;
+            workflow_dispatch) TIER="Manual" ;;
+            push)              TIER="Merge" ;;
+            pull_request)      TIER="PR #${PR_NUMBER:-?}" ;;
+            *)                 TIER="$TRIGGER" ;;
+          esac
+
+          # One shape for every trigger, pass or fail, because a predictable
+          # subject is what inbox rules and sorting depend on:
+          #
+          #   [blu2green] <Tier>: Commit <sha7> <Status> - <date> <time>
+          #
+          # The tier leads, so an inbox rule can sort on it and a nightly is
+          # distinguishable from a merge at a glance. The commit is spelled out
+          # rather than left as a bare hex string, because the people reading this
+          # asked for it by name and "Commit" is what makes it findable by search.
+          #
+          # The status word therefore lands around character 40 rather than 26,
+          # which is the deliberate cost of keeping the commit ahead of it: it
+          # survives a desktop subject column and a tablet, and can be cut off on
+          # a narrow phone preview. The tier still shows there, and the banner
+          # inside the mail says the rest.
+          #
+          # 12-hour clock with AM/PM, and no offset here — every reader is in the
+          # same timezone, so in a subject the offset only spends characters. The
+          # body carries the offset, where there is room to be unambiguous.
+          #
+          # ASCII throughout: subject headers are MIME-encoded and older clients
+          # render a stray middle dot as a question mark.
+          if [ "$ANY_FAILED" = true ]; then
+            STATUS="Failed"
           else
-            HEADLINE="$T_FAILED of $T_TOTAL tests failed"
-            SUMMARY="<span style=\"color:#b3261e;font-weight:bold\">$T_FAILED failed</span> &nbsp;&middot;&nbsp; $T_PASSED passed &nbsp;&middot;&nbsp; $T_FLAKY flaky &nbsp;&middot;&nbsp; $T_SKIPPED skipped &nbsp;&middot;&nbsp; $T_DURATION"
+            STATUS="Passed"
+          fi
+          SUBJECT="[blu2green] $TIER: Commit ${COMMIT:0:7} $STATUS - $T_COMPLETED_SHORT"
+
+          # Traces, screenshots and video are `on-first-retry` in CI, so a run
+          # that passed first time leaves none. Promising them in a green mail
+          # sends the reader hunting for artifacts that were never recorded.
+          FAIL_NOTE="Traces, screenshots, video and the Allure report are attached to the run as artifacts."
+          PASS_NOTE="The Allure report is attached to the run as an artifact. A run that passed first time records no traces, screenshots or video."
+
+          if [ "$ANY_FAILED" = true ]; then
+            BANNER="#b3261e"
+            ARTIFACTS="$FAIL_NOTE"
+            # Which kind of failure it was lives in the headline. Three different
+            # stories, and conflating them misleads: counts exist only once the
+            # report job finishes, so if it was cancelled tests may well have run
+            # and failed, and "no tests ran" would be wrong rather than merely
+            # vague.
+            if [ "$R_REPORT" != "success" ]; then
+              HEADLINE="Test results unavailable"
+              SUMMARY="The reporting step did not finish, so per-test counts could not be collected. Open the run to see what happened."
+            elif [ "$T_TOTAL" -eq 0 ]; then
+              HEADLINE="No tests ran"
+              SUMMARY="The suite failed before running anything &mdash; usually a config, dependency or environment fault rather than a broken test."
+            else
+              HEADLINE="$T_FAILED of $T_TOTAL tests failed"
+              SUMMARY="<span style=\"color:#b3261e;font-weight:bold\">$T_FAILED failed</span> &nbsp;&middot;&nbsp; $T_PASSED passed &nbsp;&middot;&nbsp; $T_FLAKY flaky &nbsp;&middot;&nbsp; $T_SKIPPED skipped &nbsp;&middot;&nbsp; $T_DURATION"
+            fi
+          elif [ "$T_TOTAL" -eq 0 ]; then
+            # Every job green with nothing to show for it. `--pass-with-no-tests`
+            # is deliberate — a tag can legitimately match nothing while the suite
+            # is young — but a green banner over zero tests is the one thing a
+            # pass mail must never say, so this one goes out amber.
+            BANNER="#8a6d00"
+            ARTIFACTS="$PASS_NOTE"
+            HEADLINE="No tests ran"
+            SUMMARY="Every job passed, but the run contained no tests. Check the tag filters before reading this as a green suite."
+          else
+            BANNER="#1e6f3c"
+            ARTIFACTS="$PASS_NOTE"
+            HEADLINE="All $T_PASSED tests passed"
+            SUMMARY="<span style=\"color:#1e6f3c;font-weight:bold\">$T_PASSED passed</span> &nbsp;&middot;&nbsp; $T_FAILED failed &nbsp;&middot;&nbsp; $T_FLAKY flaky &nbsp;&middot;&nbsp; $T_SKIPPED skipped &nbsp;&middot;&nbsp; $T_DURATION"
           fi
 
           row() {
@@ -428,7 +599,7 @@ jobs:
           blu2green <span style="color:#8ec640">&#183;</span> <span style="font-weight:normal;color:#b0bec5">E2E Automation</span>
           </td></tr>
 
-          <tr><td bgcolor="#b3261e" style="padding:20px 24px;font-family:Arial,sans-serif;font-size:21px;font-weight:bold;color:#ffffff">
+          <tr><td bgcolor="$BANNER" style="padding:20px 24px;font-family:Arial,sans-serif;font-size:21px;font-weight:bold;color:#ffffff">
           $HEADLINE
           </td></tr>
 
@@ -467,12 +638,13 @@ jobs:
           $(detail "Trigger" "$TRIGGER, by $ACTOR")
           $(detail "Run" "#$RUN_NUMBER")
           $(detail "Duration" "$T_DURATION")
+          $(detail "Completed" "$T_COMPLETED")
           </table>
           </td></tr>
 
           <tr><td style="padding:0 24px 18px;font-family:Arial,sans-serif;font-size:13px;line-height:20px;color:#607d8b">
-          Traces, screenshots, video and the Allure report are attached to the run as artifacts.<br>
-          <span style="color:#b0bec5">&ldquo;not run&rdquo; is normal &mdash; each trigger runs only its own tier.</span>
+          $ARTIFACTS<br>
+          <span style="color:#b0bec5">&ldquo;not run&rdquo; is normal - each trigger runs only its own tier.</span>
           </td></tr>
 
           <tr><td bgcolor="#f5f7f8" style="padding:14px 24px;border-top:1px solid #cfd8dc;font-family:Arial,sans-serif;font-size:12px;line-height:18px;color:#90a4ae">
@@ -483,14 +655,45 @@ jobs:
           </table></td></tr></table>
           HTML
             echo 'HTML_BODY_EOF'
+            echo 'text<<TEXT_BODY_EOF'
+            cat <<TEXT
+          blu2green - E2E Automation
+          $HEADLINE
+
+          Tests     $T_FAILED failed, $T_PASSED passed, $T_FLAKY flaky, $T_SKIPPED skipped
+          Duration  $T_DURATION
+
+          Run       $RUN_URL
+
+          PIPELINE
+            Typecheck and lint   $R_STATIC
+            Smoke                $R_SMOKE
+            Full suite           $R_FULL
+            Cross-browser        $R_CROSS
+            Merge reports        $R_REPORT
+
+          DETAILS
+            Branch    $BRANCH
+            Commit    $COMMIT
+            Trigger   $TRIGGER, by $ACTOR
+            Run       #$RUN_NUMBER
+            Completed $T_COMPLETED
+
+          $ARTIFACTS
+
+          Automated message from the blu2green E2E pipeline. Replies are not monitored.
+          $REPO_URL
+          TEXT
+            echo 'TEXT_BODY_EOF'
             echo "subject=$SUBJECT"
-            echo "headline=$HEADLINE"
+            echo "send=true"
           } >> "$GITHUB_OUTPUT"
 
       # Skipped until the SMTP secrets exist. `secrets` is unavailable in a
-      # job-level `if`, hence env.
-      - name: Send the failure email
-        if: ${{ env.MAIL_SERVER != '' }}
+      # job-level `if`, hence env. `send` is what the step above sets to false
+      # when an interrupted run left nothing worth reporting.
+      - name: Send the result email
+        if: ${{ env.MAIL_SERVER != '' && steps.mail.outputs.send == 'true' }}
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: ${{ secrets.MAIL_SERVER }}
@@ -500,33 +703,12 @@ jobs:
           password: ${{ secrets.MAIL_PASSWORD }}
           from: blu2green CI <${{ secrets.MAIL_USERNAME }}>
           to: shravan@businessgateways.com
-          # Built in the same step as the body, so the two cannot drift apart.
+          # Subject and both bodies come out of the one step above, so none of the
+          # three can drift from the outcome the other two describe. The
+          # plain-text body is the alternative for clients that refuse HTML
+          # outright; it used to be written out here in `${{ }}` expressions,
+          # which cannot see which branch the shell took and so could only ever
+          # describe a failure.
           subject: ${{ steps.mail.outputs.subject }}
           html_body: ${{ steps.mail.outputs.html }}
-          # Plain-text alternative, for clients that refuse HTML outright.
-          body: |
-            blu2green - E2E Automation
-            ${{ steps.mail.outputs.headline }}
-
-            Tests     ${{ needs.report.outputs.failed }} failed, ${{ needs.report.outputs.passed }} passed, ${{ needs.report.outputs.flaky }} flaky, ${{ needs.report.outputs.skipped }} skipped
-            Duration  ${{ needs.report.outputs.duration }}
-
-            Run       ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-            PIPELINE
-              Typecheck and lint   ${{ needs.static.result }}
-              Smoke                ${{ needs.smoke.result }}
-              Full suite           ${{ needs.full.result }}
-              Cross-browser        ${{ needs['cross-browser'].result }}
-              Merge reports        ${{ needs.report.result }}
-
-            DETAILS
-              Branch    ${{ github.head_ref || github.ref_name }}
-              Commit    ${{ github.event.pull_request.head.sha || github.sha }}
-              Trigger   ${{ github.event_name }}, by ${{ github.actor }}
-              Run       #${{ github.run_number }}
-
-            Traces, screenshots, video and the Allure report are attached to the run.
-
-            Automated message from the blu2green E2E pipeline. Replies are not monitored.
-            ${{ github.server_url }}/${{ github.repository }}
+          body: ${{ steps.mail.outputs.text }}

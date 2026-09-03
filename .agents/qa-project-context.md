@@ -139,11 +139,18 @@ history (90 days), merged Playwright HTML report (14 days) — all on `if: !canc
 **Deploy gating:** none. This repository deploys nothing; it tests a shared environment
 someone else deploys.
 
-**Failure notification:** an explicit email to `shravan@businessgateways.com` on any failing
-run, sent by the `notify-failure` job. GitHub's own Actions email reaches only whoever
-triggered a run, and a nightly cron has no triggering actor — so the tier most likely to catch
-real breakage was the one least likely to be seen. The quarantine job is excluded on purpose:
-it is non-blocking, and a quarantined test failing is expected rather than news.
+**Result notification:** an explicit email to `shravan@businessgateways.com` on every scheduled
+and manually dispatched run, pass or fail, sent by the `notify` job. GitHub's own Actions email
+reaches only whoever triggered a run, and a nightly cron has no triggering actor — so the tier
+most likely to catch real breakage was the one least likely to be seen. It goes out on a green
+night as well, because GitHub mails nothing whatsoever for a passing run: silence otherwise
+means either "the suite is green" or "the cron never fired", and an inbox cannot tell those
+apart. One mail a night either way is what makes a missing one worth chasing.
+
+Push and pull-request runs still send nothing — GitHub's own notification covers those, and
+covers them better. A run cancelled with nothing broken sends nothing either: there are no
+counts to report and whoever stopped it already knows. The quarantine job is excluded on
+purpose: it is non-blocking, and a quarantined test failing is expected rather than news.
 
 **Secrets required:** `DEMO_DB_HOST`, `DEMO_DB_PORT`, `DEMO_DB_NAME`, `DEMO_DB_USER`,
 `DEMO_DB_PASSWORD`, plus `MAIL_SERVER`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` for the
