@@ -14,6 +14,7 @@
     "test:quarantine": "playwright test --project=chromium --grep @quarantine --pass-with-no-tests",
     "test:debug": "playwright test --ui",
     "allure:generate": "allure generate allure-results",
+    "allure:share": "allure generate allure-results --config allurerc.share.mjs && node -e \"const fs=require('fs');const d=new Date().toISOString().slice(0,10);const o='allure-share/blu2green-e2e-'+d+'.html';fs.copyFileSync('allure-share/index.html',o);console.log('\\nShareable report (one file, opens anywhere): '+o)\"",
     "allure:open": "allure open allure-report",
     "allure:watch": "allure watch allure-results",
     "allure:run": "allure run -- playwright test",

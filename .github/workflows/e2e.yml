@@ -284,6 +284,23 @@ jobs:
           path: allure-report/
           retention-days: 30
 
+      # A second, self-contained build of the same results. The report above is a
+      # directory of files that fetch each other, so downloading it gets you
+      # something that only opens behind a web server. This one is a single HTML
+      # file that anyone can download and double-click — no checkout, no Node, no
+      # npm — which is what makes it the thing to send to someone outside the team.
+      - name: Generate the shareable single-file report
+        if: ${{ !cancelled() }}
+        run: npx allure generate allure-results --config allurerc.share.mjs
+
+      - name: Upload the shareable report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: allure-report-single-file
+          path: allure-share/index.html
+          retention-days: 30
+
       - name: Upload Allure history
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7

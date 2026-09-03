@@ -2,6 +2,7 @@
 # Allure 3 — results, generated report, and the trend history it accumulates
 /allure-results/
 /allure-report/
+/allure-share/
 /.allure/
 
 # Playwright

@@ -228,6 +228,29 @@ way out of that when running the suite repeatedly.
 so a run made that way writes no results and produces no report. Use the npm scripts, or pass
 no `--reporter` at all, whenever the report matters.
 
+### Sending the report to someone outside the team
+
+`allure-report/` is a directory of files that fetch each other, so it only opens behind a web
+server — which is what `allure open` quietly provides. Zipping it and sending it gives the
+recipient something that does not work.
+
+```
+npm run allure:share
+```
+
+builds the same results as **one self-contained HTML file**, `allure-share/blu2green-e2e-<date>.html`,
+around 3.5 MB. Every script and style is inlined, so it opens by double-clicking on a machine
+with no checkout, no Node and no npm. CI publishes the same thing as the
+`allure-report-single-file` artifact on every run, which is the way to hand someone a report
+without anyone running anything.
+
+Its config is [allurerc.share.mjs](allurerc.share.mjs), kept separate for one reason worth
+knowing: `allure generate` **appends the run it has just drawn** to whatever history it is
+pointed at. Building a second report from the same results against the real history would
+record that run twice and put a phantom point on the trend, so the shared build writes its
+history into its own throwaway output directory instead. The shared snapshot therefore carries
+no trend line, which is the right trade — a trend drawn from one point says nothing.
+
 **Trend history is separate and must stay that way.** It lives at `.allure/history.jsonl`, set
 by `historyPath` in [allurerc.mjs](allurerc.mjs), which is precisely what lets the results be
 thrown away each run without losing the trend drawn across them. Never move history inside
