@@ -27,11 +27,13 @@ export default defineConfig({
   testDir: './tests',
   outputDir: './test-results',
 
-  // Empties allure-results before anything runs, so the report describes this
-  // run and not every run since the directory was last cleared by hand. Trend
-  // history is kept elsewhere and survives — see the file for why.
+  // Empties allure-results and the built report before anything runs, so the
+  // report describes this run and not every run since they were last cleared by
+  // hand; then builds and opens it afterwards, however the run went. Trend
+  // history is kept elsewhere and survives both — see the files for why.
   // Relative for the same reason the environment import above is.
-  globalSetup: './config/clean-allure-results.ts',
+  globalSetup: './config/clean-allure-output.ts',
+  globalTeardown: './config/open-allure-report.ts',
 
   fullyParallel: true,
   forbidOnly: isCI,

@@ -204,13 +204,29 @@ npm run test:debug       Playwright UI mode
 npm run allure:generate  build the Allure report from allure-results
 ```
 
-`allure-results` is emptied at the start of every run by
-[config/clean-allure-results.ts](config/clean-allure-results.ts), wired as Playwright's
-`globalSetup`. Without it `allure-playwright` appends, and the report becomes the union of
-every run since somebody last deleted the directory by hand rather than the run just finished.
+The report looks after itself, through two Playwright lifecycle hooks:
 
-It is a `globalSetup` rather than an npm script because a script only helps whoever uses it —
-results pile up just as quietly for anyone running `npx playwright test` directly.
+- [config/clean-allure-output.ts](config/clean-allure-output.ts) (`globalSetup`) empties
+  `allure-results` **and** `allure-report` before anything runs. Without it `allure-playwright`
+  appends and the report becomes the union of every run since somebody last cleared the
+  directory by hand; without clearing the built report, tests that were renamed or deleted
+  linger as pages in the output.
+- [config/open-allure-report.ts](config/open-allure-report.ts) (`globalTeardown`) builds the
+  report and opens it. Set `ALLURE_OPEN=false` to build it without a browser window. Skipped
+  entirely in CI, which publishes the report as an artifact instead.
+
+Both are lifecycle hooks rather than npm scripts because a script only helps whoever uses it —
+the results piled up just as quietly for anyone running `npx playwright test` directly, which
+is how the directory reached twenty runs' worth. The teardown is not a `posttest` hook for a
+sharper reason: **npm skips `post` scripts when the script they follow exits non-zero**, so a
+hook would open the report after every run except the failing ones.
+
+Each local run leaves an Allure server running until it is closed. `ALLURE_OPEN=false` is the
+way out of that when running the suite repeatedly.
+
+**Passing `--reporter` on the command line replaces the whole reporter list**, allure included,
+so a run made that way writes no results and produces no report. Use the npm scripts, or pass
+no `--reporter` at all, whenever the report matters.
 
 **Trend history is separate and must stay that way.** It lives at `.allure/history.jsonl`, set
 by `historyPath` in [allurerc.mjs](allurerc.mjs), which is precisely what lets the results be
