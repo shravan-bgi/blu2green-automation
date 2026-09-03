@@ -204,4 +204,17 @@ npm run test:debug       Playwright UI mode
 npm run allure:generate  build the Allure report from allure-results
 ```
 
+`allure-results` is emptied at the start of every run by
+[config/clean-allure-results.ts](config/clean-allure-results.ts), wired as Playwright's
+`globalSetup`. Without it `allure-playwright` appends, and the report becomes the union of
+every run since somebody last deleted the directory by hand rather than the run just finished.
+
+It is a `globalSetup` rather than an npm script because a script only helps whoever uses it —
+results pile up just as quietly for anyone running `npx playwright test` directly.
+
+**Trend history is separate and must stay that way.** It lives at `.allure/history.jsonl`, set
+by `historyPath` in [allurerc.mjs](allurerc.mjs), which is precisely what lets the results be
+thrown away each run without losing the trend drawn across them. Never move history inside
+`allure-results`.
+
 Both `typecheck` and `lint` must pass before anything is committed.

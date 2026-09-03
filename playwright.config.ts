@@ -27,6 +27,12 @@ export default defineConfig({
   testDir: './tests',
   outputDir: './test-results',
 
+  // Empties allure-results before anything runs, so the report describes this
+  // run and not every run since the directory was last cleared by hand. Trend
+  // history is kept elsewhere and survives — see the file for why.
+  // Relative for the same reason the environment import above is.
+  globalSetup: './config/clean-allure-results.ts',
+
   fullyParallel: true,
   forbidOnly: isCI,
   // The demo environment is shared and single-instance. Pushing more browsers at
