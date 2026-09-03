@@ -163,12 +163,34 @@ a ticket. See [.github/workflows/e2e.yml](.github/workflows/e2e.yml).
   database, no per-PR instance, no truncate-between-tests. This constraint outranks the
   generic advice in `test-environments` and parts of `test-data-management`, both of which
   assume you own and can rebuild the environment.
-- The database user holds `UPDATE` but **not** `DELETE`. Data accumulates; reclaiming it
-  needs a database-side job. Design fixtures around that rather than around cleanup.
+- The database user holds `UPDATE` but **not** `DELETE`. Nothing can be reclaimed through the
+  database, so anything created *only* in the database accumulates for good.
+- **Where the application itself offers a delete, a fixture may use it.** The division
+  fixtures create and remove through [api/](api/) — see the Test data section below. This is
+  not a contradiction of the line above: it is the product removing its own record, not the
+  suite reaching into the database. Registrations still have no such route and still accumulate.
 - Database writes are confined to a named fixture account, never a range or a `WHERE`
   clause that could match a real registration.
 - Test-owned accounts take an identifying email prefix so they are distinguishable from real
   registrations.
+
+### Test data through the API
+
+Setting up a precondition through the UI costs a full journey. Where a test needs a record to
+exist but is not testing how it comes to exist, seed it through [api/](api/) instead — the
+`existingDivision` fixture is the worked example.
+
+- **The API layer is for arrange, teardown, and reading what the screen cannot show.** Assert
+  through the UI wherever the UI shows it. A test that seeds *and* asserts through the API is
+  an API test and belongs in `tests/api/`.
+- **Responses are parsed against a schema**, not spot-checked — see [api/schemas.ts](api/schemas.ts).
+  Everything answers HTTP 200, refusals included, so a body that drifts is otherwise silent.
+- **The bearer token is derived from the saved session**, never hard-coded: the application
+  stores it scrambled in `localStorage` and sets no cookies at all, so
+  [api/auth.ts](api/auth.ts) unscrambles it out of the `storageState` the `setup` project wrote.
+- **Deletes are permanent.** Teardown removes a division by the key its creation returned, or
+  by an exact name — never by prefix, filter, or "whatever is newest". The suite is fully
+  parallel against one shared company, so anything looser would take another worker's data.
 
 ## Commands
 

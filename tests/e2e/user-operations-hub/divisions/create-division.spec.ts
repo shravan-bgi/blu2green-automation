@@ -186,14 +186,17 @@ test.describe('Verify an administrator should be able to add a division to the o
     test(
       testCase.title,
       { tag: testCase.tag },
-      async ({ divisionsPage, division }) => {
+      async ({ divisionsPage, existingDivision }) => {
         await allure.severity(testCase.severity);
-        await allure.parameter('Division name', division.name);
+        await allure.parameter('Division name', existingDivision.name);
         await allure.parameter('Form', testCase.form);
 
-        await test.step('Add a division', async () => {
+        // The division is seeded through the service by the fixture rather than
+        // driven through the form here: what these two verify is that a division
+        // reaches the dropdown, not how it came to exist, and the form costs a
+        // full journey the create tests above already prove.
+        await test.step('Open the division list', async () => {
           await divisionsPage.goto();
-          await divisionsPage.createDivision(division);
         });
 
         await test.step(`Check the division is offered on the ${testCase.form} form`, async () => {
@@ -202,7 +205,7 @@ test.describe('Verify an administrator should be able to add a division to the o
           await form.openDivisionDropdown();
 
           await expect(
-            form.divisionOptions.filter({ hasText: division.name }),
+            form.divisionOptions.filter({ hasText: existingDivision.name }),
           ).toHaveCount(1);
         });
       },

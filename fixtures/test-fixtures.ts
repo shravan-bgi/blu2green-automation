@@ -1,4 +1,7 @@
 import { test as base, expect } from '@playwright/test';
+import { bearerToken } from '@api/auth';
+import { UserManagementApi } from '@api/user-management.api';
+import { environment } from '@config/environment';
 import { createPool, type Pool } from '@db/client';
 import { buildDivision } from '@factories/division.factory';
 import { DashboardPage } from '@pages/dashboard/dashboard.page';
@@ -35,8 +38,17 @@ type TestFixtures = {
   /** The division list. */
   divisionsPage: DivisionsPage;
 
+  /**
+   * The user-management service as the signed-in account, for the work a test
+   * needs done but is not testing.
+   */
+  userManagementApi: UserManagementApi;
+
   /** Details for one division no other test in this run can name. Not yet created. */
   division: Division;
+
+  /** A division that already exists, created through the API for this test alone. */
+  existingDivision: Division;
 };
 
 // No `identityLoginPage` fixture: the identity layer 404s on direct navigation,
@@ -76,11 +88,58 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await use(new DivisionsPage(page));
   },
 
-  /** This fixture generates the details for one division, unique to this test. */
+  /** This fixture provides the user-management service, signed in and disposed afterwards. */
+  // The token is read at request time rather than baked into the config, so
+  // nothing here holds a credential that can go stale between runs.
+  userManagementApi: async ({ playwright }, use) => {
+    const context = await playwright.request.newContext({
+      baseURL: environment.baseURL,
+      extraHTTPHeaders: {
+        Authorization: bearerToken(),
+        // The application posts its JSON as text/plain and the service accepts
+        // it either way; this is the honest one.
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/plain, */*',
+      },
+    });
+
+    await use(new UserManagementApi(context));
+    await context.dispose();
+  },
+
+  /** This fixture generates the details for one division and removes it afterwards. */
   // Generated, not created: the create journeys are the ones under test, so the
   // fixture hands over values and leaves the creating to the spec.
-  division: async ({}, use) => {
-    await use(buildDivision());
+  //
+  // Teardown deletes by this exact name rather than by diffing the listing. The
+  // suite runs fully parallel against one shared company and the delete is
+  // permanent, so anything removing "whatever is new" would take another
+  // worker's division with it. A name that was never created is nothing to do
+  // rather than a failure, which is the normal outcome for the duplicate case.
+  division: async ({ userManagementApi }, use) => {
+    const division = buildDivision();
+
+    await use(division);
+
+    await userManagementApi.deleteDivisionNamed(division.name);
+  },
+
+  /** This fixture creates one division through the API for a test that needs one to act on. */
+  // Per test, not per file: the edit and delete journeys change the thing they
+  // are given, so two tests sharing a division is the one arrangement that
+  // cannot be made safe. Created through the service rather than the form
+  // because creating is not what these tests are about — the form costs a full
+  // journey, and the create suite already proves it green on every run.
+  //
+  // Teardown goes by the key the create returned, so it removes the division
+  // this test made even if the test renamed it, which the edit journeys do.
+  existingDivision: async ({ userManagementApi }, use) => {
+    const division = buildDivision();
+    const pk = await userManagementApi.createDivision(division);
+
+    await use(division);
+
+    await userManagementApi.deleteDivision(pk);
   },
 });
 

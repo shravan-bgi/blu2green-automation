@@ -54,12 +54,16 @@ This repository:
 - **Framework:** Playwright 1.62.1 (`@playwright/test`)
 - **Config:** `playwright.config.ts`
 - **Test directory:** `tests/e2e/`, plus `tests/setup/` for the sign-in-once `setup` project
-- **Current state:** seven tests over two journeys.
+- **Current state:** twelve tests over three journeys, plus the sign-in-once setup.
   - Sign in — `TC_LOGIN_001` (email identifier) and `TC_LOGIN_002` (mobile identifier),
     driven from `data/sign-in.json`. The only specs that sign in through the UI.
   - Add a division — `TC_DIV_CREATE_001`–`005`, covering the mandatory-fields path, a logo
     attached from the b2g Drive, the duplicate-name refusal, and propagation into the Add
     Department and Add User division dropdowns.
+  - Edit a division — `TC_DIV_EDIT_001`–`005`, covering a valid change, Cancel, the two
+    Update-disabled guards, and the protected system-default division.
+- **Test data:** seeded and torn down through the user-management API (`api/`), not the UI —
+  a UI arrange costs a full journey. Responses are schema-validated with Zod 4.
 - **Authentication:** a `setup` project signs in once per run and saves `storageState`; every
   browser project depends on it, and dependency projects run regardless of `--grep`.
 - **Counting assertions:** the division counters are asserted for *agreement* (metric card =
@@ -170,7 +174,7 @@ Unit coverage: not applicable — no application code lives here.
 | Enterprise classification and SMEDA certificate | **Important** | Entitlement claimed without evidence | The classification decides an entitlement and is invisible on screen after submission — only readable from the database. The certificate is prompted for but **not enforced** in the form or at the server. |
 | Registration for international organizations | **Important** | Silent mis-filing of foreign suppliers | A different form and a different payload, not the same request with a different dropdown. Oman coverage proves nothing about it. |
 | Shared-environment data accumulation | **Monitor** | Slow degradation of the environment | Low severity, high likelihood. Every run adds registrations and two credential-history rows that nothing prunes; one account already carries 97. |
-| Division accumulation on the shared tenant | **Monitor** | Slower forms, then a slower suite | Four of the five create tests leave a division behind, all `auto_`-prefixed, and there is no teardown by design — a delete-based one would use the very feature Scenario 3 tests and would shift the counters other tests are polling. The Add Department and Add User division dropdowns are where this bites first: at several hundred options they will slow, and `TC_DIV_CREATE_004`/`005` are the tests that will notice. Reclaiming them needs a database-side job matching `auto_%`. |
+| Division backlog on the shared tenant | **Monitor** | Slower forms, then a slower suite | **Growth is stopped** — every division a test creates is removed again through the API, verified by the count falling from 127 to 125 across three full runs that create ~8 each. What remains is a backlog of **124 `auto_` divisions** left by development before teardown existed, against one real division. They load into the Add Department and Add User dropdowns, which is what `TC_DIV_CREATE_004`/`005` open, so they cost time on every run. Clearing them is a deliberate, permanent, prefix-scoped delete that nobody has authorised yet. |
 
 ## Team
 

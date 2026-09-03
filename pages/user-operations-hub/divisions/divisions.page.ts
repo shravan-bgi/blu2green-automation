@@ -1,10 +1,10 @@
 import type { Locator } from '@playwright/test';
 import { routes } from '@config/endpoints';
 import { BasePage } from '@pages/base.page';
-import { AddDivisionPage } from '@pages/user-operations-hub/divisions/add-division.page';
+import { DivisionFormPage } from '@pages/user-operations-hub/divisions/division-form.page';
 import { DepartmentsPage } from '@pages/user-operations-hub/departments/departments.page';
 import { UsersPage } from '@pages/user-operations-hub/users/users.page';
-import type { Division, DivisionCounts } from '@typings/division.types';
+import type { DivisionCounts } from '@typings/division.types';
 import { readNumber } from '@utils/text';
 
 /**
@@ -165,32 +165,28 @@ export class DivisionsPage extends BasePage {
     };
   }
 
-  /** This method opens the Add Division form. */
-  async openAddDivision(): Promise<AddDivisionPage> {
+  /** This method opens the division form ready to add a new division. */
+  async openAddDivision(): Promise<DivisionFormPage> {
     await this.addDivisionButton.click();
 
-    const addDivisionPage = new AddDivisionPage(this.page);
-    await addDivisionPage.waitUntilReady();
+    const form = new DivisionFormPage(this.page);
+    await form.waitUntilReady();
 
-    return addDivisionPage;
+    return form;
   }
 
-  /** This method creates one division through the form and clears the outcome dialog. */
-  // For tests that need a division to exist but are not testing how it gets
-  // created — the dropdown-propagation journeys now, the edit and delete journeys
-  // next. The tests that *are* about creating drive the form step by step
-  // instead, so that each part of it stays separately assertable.
-  //
-  // Deliberately built through the UI rather than the API: this path is the one
-  // the create suite proves green on every run, so an arrange that breaks is
-  // reporting a real break in the same journey rather than drift in a second,
-  // unverified way of making a division.
-  async createDivision(division: Division): Promise<void> {
-    const form = await this.openAddDivision();
+  /** This method opens one division's row menu and returns the form filled with its details. */
+  // The same route and the same form as adding, prefilled, with Update in place
+  // of Add. The row has to be found first, so callers that have searched the
+  // table need not search again.
+  async openEdit(name: string): Promise<DivisionFormPage> {
+    await this.openRowActions(name);
+    await this.editOption.click();
 
-    await form.fillDetails(division);
-    await form.submit();
-    await this.dismissDialog();
+    const form = new DivisionFormPage(this.page);
+    await form.waitUntilReady();
+
+    return form;
   }
 
   /** This method opens the row actions menu for one division. */

@@ -43,6 +43,32 @@
       "title": "TC_DIV_CREATE_005 | Verify a newly added division is offered in the Division list when a new user is created",
       "tag": ["@regression", "@user-operations-hub", "@positive", "@ui"],
       "severity": "normal"
+    },
+
+    "TC_DIV_EDIT_001": {
+      "title": "TC_DIV_EDIT_001 | Verify an administrator can change a division's details and see the existing record updated rather than a second one added",
+      "tag": ["@regression", "@user-operations-hub", "@positive", "@ui"],
+      "severity": "critical"
+    },
+    "TC_DIV_EDIT_002": {
+      "title": "TC_DIV_EDIT_002 | Verify abandoning an edit with Cancel leaves the division exactly as it was",
+      "tag": ["@regression", "@user-operations-hub", "@positive", "@ui"],
+      "severity": "normal"
+    },
+    "TC_DIV_EDIT_003": {
+      "title": "TC_DIV_EDIT_003 | Verify the Update button stays disabled until something on the division form is actually changed",
+      "tag": ["@regression", "@user-operations-hub", "@negative", "@ui"],
+      "severity": "minor"
+    },
+    "TC_DIV_EDIT_004": {
+      "title": "TC_DIV_EDIT_004 | Verify the Update button becomes disabled when a mandatory field is cleared",
+      "tag": ["@regression", "@user-operations-hub", "@negative", "@ui"],
+      "severity": "normal"
+    },
+    "TC_DIV_EDIT_005": {
+      "title": "TC_DIV_EDIT_005 | Verify the system-default Corporate Division offers no way to edit it",
+      "tag": ["@regression", "@user-operations-hub", "@negative", "@ui"],
+      "severity": "critical"
     }
   }
 }
