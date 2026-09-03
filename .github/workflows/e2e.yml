@@ -221,6 +221,7 @@ jobs:
       total: ${{ steps.counts.outputs.total }}
       duration: ${{ steps.counts.outputs.duration }}
       completed: ${{ steps.counts.outputs.completed }}
+      completed_short: ${{ steps.counts.outputs.completed_short }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -272,7 +273,16 @@ jobs:
           # the fallback safe — a runner image without this zone degrades to an
           # honest "+0000" rather than to a local time that is silently four
           # hours wrong.
-          COMPLETED=$(TZ='Asia/Muscat' date '+%d %b %Y %H:%M %z')
+          # Formatted twice from one epoch rather than by calling `date` twice,
+          # which could straddle a minute boundary and put two different times on
+          # one run. The short form is for the subject, where every reader is in
+          # the same timezone and the offset only spends characters; the long form
+          # carries it, because in the body there is room to be unambiguous and
+          # %z is what keeps the fallback honest — a runner image without this
+          # zone then reads "+0000" instead of passing UTC off as local time.
+          NOW=$(date +%s)
+          COMPLETED=$(TZ='Asia/Muscat' date -d "@$NOW" '+%d %b %Y %I:%M %p %z')
+          COMPLETED_SHORT=$(TZ='Asia/Muscat' date -d "@$NOW" '+%d %b %Y %I:%M %p')
           {
             echo "passed=$P"
             echo "failed=$F"
@@ -281,6 +291,7 @@ jobs:
             echo "total=$((P + F + K + S))"
             echo "duration=$HUMAN"
             echo "completed=$COMPLETED"
+            echo "completed_short=$COMPLETED_SHORT"
           } >> "$GITHUB_OUTPUT"
           echo "Merged totals: $P passed, $F failed, $K flaky, $S skipped in $HUMAN"
 
@@ -431,6 +442,7 @@ jobs:
           COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
           TRIGGER: ${{ github.event_name }}
           ACTOR: ${{ github.actor }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           T_PASSED: ${{ needs.report.outputs.passed }}
           T_FAILED: ${{ needs.report.outputs.failed }}
           T_FLAKY: ${{ needs.report.outputs.flaky }}
@@ -438,6 +450,7 @@ jobs:
           T_TOTAL: ${{ needs.report.outputs.total }}
           T_DURATION: ${{ needs.report.outputs.duration }}
           T_COMPLETED: ${{ needs.report.outputs.completed }}
+          T_COMPLETED_SHORT: ${{ needs.report.outputs.completed_short }}
         run: |
           set -euo pipefail
 
@@ -451,7 +464,8 @@ jobs:
           # never reached reporting sends no pass mail at all — and it falls back
           # to the time the mail itself was built, which is the closest thing to
           # the truth still available.
-          T_COMPLETED=${T_COMPLETED:-$(TZ='Asia/Muscat' date '+%d %b %Y %H:%M %z')}
+          T_COMPLETED=${T_COMPLETED:-$(TZ='Asia/Muscat' date '+%d %b %Y %I:%M %p %z')}
+          T_COMPLETED_SHORT=${T_COMPLETED_SHORT:-$(TZ='Asia/Muscat' date '+%d %b %Y %I:%M %p')}
 
           # Read off the tier results rather than the workflow's own status: most
           # triggers skip whole tiers, and neither success() nor failure() can
@@ -479,22 +493,47 @@ jobs:
             fi
           fi
 
-          # One fixed shape, pass or fail. A predictable subject is what inbox
-          # rules and sorting depend on. The status word stays inside the first 33
-          # characters so it survives a phone preview; the timestamp goes after it
-          # precisely because it is the half that can afford to be truncated —
-          # every mail client shows its own received time anyway, and what this
-          # one adds is the run's time in Oman rather than the reader's.
+          # The trigger names the run. "Which run was this" is the first question
+          # a subject has to answer, and the word that answers it is the one an
+          # inbox rule can sort on — where "Commit" answered nothing, since every
+          # mail carried it. PR carries its number too: a pull request gets a run
+          # per push, so the number is what groups them.
+          case "$TRIGGER" in
+            schedule)          TIER="Nightly" ;;
+            workflow_dispatch) TIER="Manual" ;;
+            push)              TIER="Merge" ;;
+            pull_request)      TIER="PR #${PR_NUMBER:-?}" ;;
+            *)                 TIER="$TRIGGER" ;;
+          esac
+
+          # One shape for every trigger, pass or fail, because a predictable
+          # subject is what inbox rules and sorting depend on:
           #
-          # ASCII only, and a numeric offset rather than a zone abbreviation:
-          # subject headers are MIME-encoded and older clients render a stray
-          # middle dot as a question mark, while "GST" is ambiguous in a way that
-          # "+0400" is not.
+          #   [blu2green] <Tier>: Commit <sha7> <Status> - <date> <time>
+          #
+          # The tier leads, so an inbox rule can sort on it and a nightly is
+          # distinguishable from a merge at a glance. The commit is spelled out
+          # rather than left as a bare hex string, because the people reading this
+          # asked for it by name and "Commit" is what makes it findable by search.
+          #
+          # The status word therefore lands around character 40 rather than 26,
+          # which is the deliberate cost of keeping the commit ahead of it: it
+          # survives a desktop subject column and a tablet, and can be cut off on
+          # a narrow phone preview. The tier still shows there, and the banner
+          # inside the mail says the rest.
+          #
+          # 12-hour clock with AM/PM, and no offset here — every reader is in the
+          # same timezone, so in a subject the offset only spends characters. The
+          # body carries the offset, where there is room to be unambiguous.
+          #
+          # ASCII throughout: subject headers are MIME-encoded and older clients
+          # render a stray middle dot as a question mark.
           if [ "$ANY_FAILED" = true ]; then
-            SUBJECT="[blu2green] Commit ${COMMIT:0:7} Failed - $T_COMPLETED"
+            STATUS="Failed"
           else
-            SUBJECT="[blu2green] Commit ${COMMIT:0:7} Passed - $T_COMPLETED"
+            STATUS="Passed"
           fi
+          SUBJECT="[blu2green] $TIER: Commit ${COMMIT:0:7} $STATUS - $T_COMPLETED_SHORT"
 
           # Traces, screenshots and video are `on-first-retry` in CI, so a run
           # that passed first time leaves none. Promising them in a green mail
