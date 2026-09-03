@@ -605,7 +605,7 @@ jobs:
 
           <tr><td style="padding:0 24px 18px;font-family:Arial,sans-serif;font-size:13px;line-height:20px;color:#607d8b">
           $ARTIFACTS<br>
-          <span style="color:#b0bec5">&ldquo;not run&rdquo; is normal &mdash; each trigger runs only its own tier.</span>
+          <span style="color:#b0bec5">&ldquo;not run&rdquo; is normal - each trigger runs only its own tier.</span>
           </td></tr>
 
           <tr><td bgcolor="#f5f7f8" style="padding:14px 24px;border-top:1px solid #cfd8dc;font-family:Arial,sans-serif;font-size:12px;line-height:18px;color:#90a4ae">
