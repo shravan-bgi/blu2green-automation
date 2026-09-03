@@ -289,16 +289,19 @@ jobs:
       # something that only opens behind a web server. This one is a single HTML
       # file that anyone can download and double-click — no checkout, no Node, no
       # npm — which is what makes it the thing to send to someone outside the team.
+      # Through the npm script rather than the CLI, so the file arrives named
+      # blu2green-e2e-<date>.html. Whoever downloads this unzips it onto a
+      # desktop, and "index.html" is not a name anyone can find again.
       - name: Generate the shareable single-file report
         if: ${{ !cancelled() }}
-        run: npx allure generate allure-results --config allurerc.share.mjs
+        run: npm run allure:share
 
       - name: Upload the shareable report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
           name: allure-report-single-file
-          path: allure-share/index.html
+          path: allure-share/blu2green-e2e-*.html
           retention-days: 30
 
       - name: Upload Allure history
