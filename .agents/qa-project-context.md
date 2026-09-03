@@ -21,12 +21,15 @@ Key user journeys, in priority order:
 2. An organization outside Oman registers — a materially different request, not the same one
    with a different dropdown value.
 3. A newly registered applicant sets a password and a six-digit PIN from the success modal.
-4. A registered user signs in and reaches the dashboard. **Rebuilt by the product team in
-   September 2026; the new flow has not been automated yet.**
+4. A registered user signs in and reaches the dashboard. **Automated — `TC_LOGIN_001`/`002`.**
+   The flow changed twice in September 2026: onto the identity layer, and then on 3 September
+   the NIBE platform hub returned, so sign-in ends on a hub whose "Access Platform" button
+   opens the application in a further tab. `IdentityLoginPage.submit` races both landings, so
+   the next reversal costs nothing.
 5. A user resets a forgotten password, or a forgotten PIN, by emailed OTP.
-6. An administrator adds a division and attaches a logo through the b2g Drive file picker.
-   **Automated — `TC_DIV_CREATE_001`–`005`.** Editing and deleting a division are the next
-   two passes and are not covered yet.
+6. An administrator adds a division and attaches a logo through the b2g Drive file picker,
+   then edits and deletes it. **Fully automated — `TC_DIV_CREATE_*`, `TC_DIV_EDIT_*`,
+   `TC_DIV_DELETE_*`.**
 7. Duplicate details are refused at registration — organization name, mobile and commercial
    number per country, business email globally.
 
@@ -54,12 +57,24 @@ This repository:
 - **Framework:** Playwright 1.62.1 (`@playwright/test`)
 - **Config:** `playwright.config.ts`
 - **Test directory:** `tests/e2e/`, plus `tests/setup/` for the sign-in-once `setup` project
-- **Current state:** seven tests over two journeys.
+- **Current state:** thirty tests over six journeys, plus the sign-in-once setup — twenty-one
+  through the browser and ten against the service.
   - Sign in — `TC_LOGIN_001` (email identifier) and `TC_LOGIN_002` (mobile identifier),
     driven from `data/sign-in.json`. The only specs that sign in through the UI.
   - Add a division — `TC_DIV_CREATE_001`–`005`, covering the mandatory-fields path, a logo
     attached from the b2g Drive, the duplicate-name refusal, and propagation into the Add
     Department and Add User division dropdowns.
+  - Edit a division — `TC_DIV_EDIT_001`–`005`, covering a valid change, Cancel, the two
+    Update-disabled guards, and the protected system-default division.
+  - Delete a division — `TC_DIV_DELETE_001`–`004`, covering the confirmed delete and its
+    counters, cancelling the confirmation, the protected system-default division, and a
+    deleted division dropping out of both Division dropdowns.
+  - Find a division — `TC_DIVSEARCH_001`–`005`, covering search by name and by generated ID,
+    searching from a later page, clearing the search, and the empty state. Only the parts of
+    search that are genuinely browser behaviour: matching semantics and escaping are asserted
+    against the service instead, where they cost a second rather than half a minute.
+- **Test data:** seeded and torn down through the user-management API (`api/`), not the UI —
+  a UI arrange costs a full journey. Responses are schema-validated with Zod 4.
 - **Authentication:** a `setup` project signs in once per run and saves `storageState`; every
   browser project depends on it, and dependency projects run regardless of `--grep`.
 - **Counting assertions:** the division counters are asserted for *agreement* (metric card =
@@ -69,8 +84,22 @@ This repository:
 
 ### API
 
-- **Framework:** Playwright `APIRequestContext` — planned, not written.
-- **Test directory:** `tests/api/` (empty), clients in `api/` (empty).
+- **Framework:** Playwright `APIRequestContext`, in its own `api` project with
+  `dependencies: ['setup']` and no browser.
+- **Test directory:** `tests/api/`, client in `api/`.
+- **Current state:** ten tests over the User Operations Hub service —
+  `TC_DIVAPI_001`–`010`: the authentication boundary, tenant scoping of the listing,
+  ID generation under concurrent creation, server-side mandatory-field enforcement, search
+  safety, delete idempotency, and the response contract of the listing and sector endpoints.
+- **Schema validation:** Zod 4. The client parses *every* response, so drift fails on the call
+  that hit it rather than downstream.
+- **Deliberately not covered:** write-side tenant isolation. Proving "I cannot delete a
+  division that isn't mine" means attempting it, and deletes are permanent against a shared
+  environment holding other tenants' data. Manual security review with sign-off, not
+  automation. Read-side scoping is covered by `TC_DIVAPI_003`.
+- **Known gaps:** expired-token rejection (we cannot sign one; the forged-signature case
+  exercises the same path) and the 403 permission boundary (needs a second, lower-privileged
+  account this environment does not provide).
 
 ### Unit / Component / Visual / Performance
 
@@ -170,7 +199,8 @@ Unit coverage: not applicable — no application code lives here.
 | Enterprise classification and SMEDA certificate | **Important** | Entitlement claimed without evidence | The classification decides an entitlement and is invisible on screen after submission — only readable from the database. The certificate is prompted for but **not enforced** in the form or at the server. |
 | Registration for international organizations | **Important** | Silent mis-filing of foreign suppliers | A different form and a different payload, not the same request with a different dropdown. Oman coverage proves nothing about it. |
 | Shared-environment data accumulation | **Monitor** | Slow degradation of the environment | Low severity, high likelihood. Every run adds registrations and two credential-history rows that nothing prunes; one account already carries 97. |
-| Division accumulation on the shared tenant | **Monitor** | Slower forms, then a slower suite | Four of the five create tests leave a division behind, all `auto_`-prefixed, and there is no teardown by design — a delete-based one would use the very feature Scenario 3 tests and would shift the counters other tests are polling. The Add Department and Add User division dropdowns are where this bites first: at several hundred options they will slow, and `TC_DIV_CREATE_004`/`005` are the tests that will notice. Reclaiming them needs a database-side job matching `auto_%`. |
+| Division ID generation races under concurrent creation | **Critical** | Two divisions indistinguishable by the identifier users are told to search by | High impact, and **reproducible on demand**. Creating four divisions simultaneously on 2026-09-03 produced `DIV-10111-306` twice, with `307` skipped — the signature of a read-modify-write on a sequence. A collision was independently found in the wild (`DIV-10111-113` on two rows). The rows have distinct primary keys, so nothing is lost, but the Division ID is user-facing, is what the list search offers to match on, and is assumed unique. `TC_DIVAPI_004` covers it and is `@quarantine` until the product fixes it. |
+| Division backlog on the shared tenant | **Monitor** | Slower forms, then a slower suite | **Growth is stopped** — every division a test creates is removed again through the API, verified by the count sitting at exactly 125 before and after nine consecutive full runs that create about twelve each. What remains is a backlog of **124 `auto_` divisions** left by development before teardown existed, against one real division. They load into the Add Department and Add User dropdowns, which is what `TC_DIV_CREATE_004`/`005` and `TC_DIV_DELETE_004` open, and the table pages at ten rows so nothing is findable without searching first. Clearing them is a deliberate, permanent, prefix-scoped delete that nobody has authorised yet. |
 
 ## Team
 

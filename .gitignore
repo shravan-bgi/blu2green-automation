@@ -2,6 +2,7 @@
 # Allure 3 — results, generated report, and the trend history it accumulates
 /allure-results/
 /allure-report/
+/allure-share/
 /.allure/
 
 # Playwright
@@ -30,3 +31,7 @@ node_modules/
 # Scaffolding the Playwright MCP planner writes on every setup_page call. Not
 # ours, recreated whenever the planner runs, and never worth committing.
 tests/seed.spec.ts
+
+# Test plans. Working documents for deciding what to automate — the decisions
+# that survive end up in the specs and in .agents/qa-project-context.md.
+/test-plans/

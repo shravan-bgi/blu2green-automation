@@ -1,10 +1,11 @@
 import type { Locator } from '@playwright/test';
-import { routes } from '@config/endpoints';
+import { expect } from '@playwright/test';
+import { routes, userOperationsHubApi as service } from '@config/endpoints';
 import { BasePage } from '@pages/base.page';
-import { AddDivisionPage } from '@pages/user-operations-hub/divisions/add-division.page';
+import { DivisionFormPage } from '@pages/user-operations-hub/divisions/division-form.page';
 import { DepartmentsPage } from '@pages/user-operations-hub/departments/departments.page';
 import { UsersPage } from '@pages/user-operations-hub/users/users.page';
-import type { Division, DivisionCounts } from '@typings/division.types';
+import type { DivisionCounts } from '@typings/division.types';
 import { readNumber } from '@utils/text';
 
 /**
@@ -105,6 +106,41 @@ export class DivisionsPage extends BasePage {
     return this.page.getByRole('menuitem', { name: 'Delete' });
   }
 
+  /** This getter returns the button that confirms a deletion. */
+  // Labelled with the action rather than a bare Yes, so it is matched by name.
+  // The confirmation and the outcome that replaces it are both the same dialog
+  // element, which is why the two are told apart by their buttons.
+  get confirmDeleteButton(): Locator {
+    return this.dialog.getByRole('button', { name: 'Delete', exact: true });
+  }
+
+  /** This getter returns the button that declines a deletion. */
+  // Cancel, not No. The dialog carries a hidden `No` button in its markup that
+  // is never shown for this confirmation, so reading the dialog's text suggests
+  // three choices where only two are offered.
+  get declineDeleteButton(): Locator {
+    return this.dialog.getByRole('button', { name: 'Cancel', exact: true });
+  }
+
+  /** This getter returns the button that clears an outcome dialog. */
+  get acknowledgeButton(): Locator {
+    return this.dialog.getByRole('button', { name: 'OK', exact: true });
+  }
+
+  /** This getter returns the row the table shows when nothing matches. */
+  get emptyState(): Locator {
+    return this.page.getByText(/No records found/i);
+  }
+
+  /** This getter returns the paginator's Next page button. */
+  // Scoped like the range label: the page renders the paginator twice for its
+  // responsive layouts, so an unscoped match is a strict-mode violation.
+  get nextPageButton(): Locator {
+    return this.page
+      .locator('mat-paginator.custom-paginator')
+      .getByRole('button', { name: /Next page/i });
+  }
+
   /** This getter returns the paginator's range label, when the table has one. */
   // Scoped to `.custom-paginator`: the page renders the same paginator twice for
   // its responsive layouts, and an unscoped match is a strict-mode violation. The
@@ -132,9 +168,35 @@ export class DivisionsPage extends BasePage {
     await this.totalDivisionsTile.waitFor({ timeout: 60_000 });
   }
 
-  /** This method filters the table down to one division. */
+  /** This method filters the table down to the divisions matching a term. */
+  // Enter is what runs the search — filling the box alone changes nothing, and
+  // the magnifying-glass button beside it does nothing either. Clearing works
+  // the same way: emptying the box does not restore the full list until Enter
+  // is pressed, which is why `clearSearch` presses it too.
   async search(term: string): Promise<void> {
     await this.searchField.fill(term);
+
+    // The listing call Enter sets off is waited for, so this method's contract is
+    // true when it returns rather than moments later. Without it a caller reads
+    // the table mid-reload and sees the rows the search was meant to replace.
+    const listing = this.page.waitForResponse(
+      (response) => response.url().includes(service.divisionListing),
+      { timeout: 60_000 },
+    );
+
+    await this.searchField.press('Enter');
+    await listing;
+
+    // The box is checked afterwards because it is the term the component sent,
+    // not the one that was typed, that decides what comes back — and a re-render
+    // landing between the fill and the Enter empties it, which shows up as a
+    // search that quietly returned everything.
+    await expect(this.searchField).toHaveValue(term);
+  }
+
+  /** This method clears the search so the table shows every division again. */
+  async clearSearch(): Promise<void> {
+    await this.search('');
   }
 
   /** This method returns how many divisions the table holds, across every page. */
@@ -165,38 +227,59 @@ export class DivisionsPage extends BasePage {
     };
   }
 
-  /** This method opens the Add Division form. */
-  async openAddDivision(): Promise<AddDivisionPage> {
+  /** This method opens the division form ready to add a new division. */
+  async openAddDivision(): Promise<DivisionFormPage> {
     await this.addDivisionButton.click();
 
-    const addDivisionPage = new AddDivisionPage(this.page);
-    await addDivisionPage.waitUntilReady();
+    const form = new DivisionFormPage(this.page);
+    await form.waitUntilReady();
 
-    return addDivisionPage;
+    return form;
   }
 
-  /** This method creates one division through the form and clears the outcome dialog. */
-  // For tests that need a division to exist but are not testing how it gets
-  // created — the dropdown-propagation journeys now, the edit and delete journeys
-  // next. The tests that *are* about creating drive the form step by step
-  // instead, so that each part of it stays separately assertable.
-  //
-  // Deliberately built through the UI rather than the API: this path is the one
-  // the create suite proves green on every run, so an arrange that breaks is
-  // reporting a real break in the same journey rather than drift in a second,
-  // unverified way of making a division.
-  async createDivision(division: Division): Promise<void> {
-    const form = await this.openAddDivision();
+  /** This method opens one division's row menu and returns the form filled with its details. */
+  // The same route and the same form as adding, prefilled, with Update in place
+  // of Add. The row has to be found first, so callers that have searched the
+  // table need not search again.
+  async openEdit(name: string): Promise<DivisionFormPage> {
+    await this.openRowActions(name);
+    await this.editOption.click();
 
-    await form.fillDetails(division);
-    await form.submit();
-    await this.dismissDialog();
+    const form = new DivisionFormPage(this.page);
+    await form.waitUntilReady();
+
+    return form;
   }
 
   /** This method opens the row actions menu for one division. */
   async openRowActions(name: string): Promise<void> {
     await this.rowActionsMenu(name).click();
     await this.editOption.waitFor({ timeout: 15_000 });
+  }
+
+  /** This method opens one division's row menu and asks to delete it. */
+  // Stops at the confirmation rather than going through with it, so that a spec
+  // can assert on what the confirmation says — and so the declining journey has
+  // somewhere to stand.
+  async openDelete(name: string): Promise<void> {
+    await this.openRowActions(name);
+    await this.deleteOption.click();
+    await this.confirmDeleteButton.waitFor({ timeout: 30_000 });
+  }
+
+  /** This method confirms a deletion and waits for the outcome to be shown. */
+  // Waits for the acknowledge button rather than for the dialog to close: the
+  // outcome replaces the confirmation in the same element, so nothing closes in
+  // between and only the buttons say which of the two is on screen.
+  async confirmDelete(): Promise<void> {
+    await this.confirmDeleteButton.click();
+    await this.acknowledgeButton.waitFor({ timeout: 60_000 });
+  }
+
+  /** This method declines a deletion and waits for the confirmation to close. */
+  async declineDelete(): Promise<void> {
+    await this.declineDeleteButton.click();
+    await expect(this.dialog).toBeHidden({ timeout: 30_000 });
   }
 
   /** This method opens the department list from the Departments tile. */

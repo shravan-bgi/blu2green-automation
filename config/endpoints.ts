@@ -41,3 +41,24 @@ export const routes = {
  * inventory of the API.
  */
 export const endpoints = {} as const;
+
+/**
+ * The user-management service, which every User Operations Hub screen talks to.
+ *
+ * Kept apart from {@link endpoints} because these are called directly rather
+ * than waited on: the suite uses them to seed a precondition and to take back
+ * what a test created.
+ */
+// Captured from the application on 2026-09-03 by watching what the division
+// screens send, rather than taken from documentation — there is none.
+export const userOperationsHubApi = {
+  base: '/usermg/web/apium/um',
+
+  addDivision: 'adddivision',
+  divisionListing: 'divisionlisting',
+
+  /** Named for a deactivation, but the removal is permanent. */
+  deactivateDivision: 'deactivatedivision',
+
+  sectorList: 'getsectorlist',
+} as const;

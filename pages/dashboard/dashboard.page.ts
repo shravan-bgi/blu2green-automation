@@ -1,4 +1,4 @@
-import type { Locator } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { routes } from '@config/endpoints';
 import { BasePage } from '@pages/base.page';
@@ -26,6 +26,14 @@ export class DashboardPage extends BasePage {
   /** This getter returns the Enterprise Administration section heading. */
   get enterpriseAdministration(): Locator {
     return this.page.getByText('Enterprise Administration');
+  }
+
+  /** This getter returns the tab this dashboard is bound to, for URL assertions. */
+  // BasePage keeps `page` protected, and sign-in no longer ends in the tab it
+  // started in: when the identity layer routes through the NIBE hub, the
+  // application opens in a further tab, and this is the only handle on it.
+  get tab(): Page {
+    return this.page;
   }
 
   /** This getter returns the User Operations Hub tile. */

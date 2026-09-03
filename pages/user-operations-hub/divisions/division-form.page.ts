@@ -7,12 +7,18 @@ import { ImageCropperComponent } from '@pages/components/image-cropper.component
 import type { Division } from '@typings/division.types';
 
 /**
- * The Add Division form — a route of its own, not a dialog.
+ * The division form — a route of its own, not a dialog, and the same route
+ * whether a division is being added or edited.
+ *
+ * Adding and editing differ only in the button that commits: `Add` on the way
+ * in, `Update` when a row's Edit opened it with the fields already filled. That
+ * is why one class serves both.
  *
  * Three fields are mandatory, not two: Division Name, Division (Sector) and
- * Description. Add stays disabled until all three are filled.
+ * Description. The commit button stays disabled until all three are filled, and
+ * on an edit until something has actually changed.
  */
-export class AddDivisionPage extends BasePage {
+export class DivisionFormPage extends BasePage {
   readonly path = routes.addDivision;
 
   /** This getter returns the b2g Drive picker behind the image upload control. */
@@ -60,14 +66,40 @@ export class AddDivisionPage extends BasePage {
     return this.page.getByText('Upload a file', { exact: true });
   }
 
-  /** This getter returns the Add button that submits the form. */
+  /** This getter returns the Add button, which commits a new division. */
   get addButton(): Locator {
     return this.page.getByRole('button', { name: 'Add', exact: true });
+  }
+
+  /** This getter returns the Update button, which commits an edit. */
+  get updateButton(): Locator {
+    return this.page.getByRole('button', { name: 'Update', exact: true });
+  }
+
+  /** This getter returns whichever button commits this form. */
+  // Only one of the two is ever rendered, so `or` resolves without ambiguity and
+  // one submit path serves adding and editing alike.
+  get submitButton(): Locator {
+    return this.addButton.or(this.updateButton);
   }
 
   /** This getter returns the Cancel button. */
   get cancelButton(): Locator {
     return this.page.getByRole('button', { name: 'Cancel', exact: true });
+  }
+
+  /** This getter returns the warning Cancel raises when the form has been changed. */
+  // Matched by its own wording rather than by role alone: this journey passes
+  // through several unnamed dialogs, and the outcome dialog is one of them.
+  get unsavedChangesWarning(): Locator {
+    return this.page
+      .getByRole('dialog')
+      .filter({ hasText: 'Any unsaved changes will be lost' });
+  }
+
+  /** This getter returns the button that confirms the changes may be discarded. */
+  get discardChangesButton(): Locator {
+    return this.unsavedChangesWarning.getByRole('button', { name: 'Yes', exact: true });
   }
 
   /** This method waits until the whole form is mounted and will keep what is typed. */
@@ -80,7 +112,7 @@ export class AddDivisionPage extends BasePage {
   override async waitUntilReady(): Promise<void> {
     await this.nameField.waitFor({ timeout: 45_000 });
     await this.descriptionEditor.waitFor({ timeout: 45_000 });
-    await this.addButton.waitFor({ timeout: 45_000 });
+    await this.submitButton.waitFor({ timeout: 45_000 });
   }
 
   /** This method enters the division name. */
@@ -129,14 +161,25 @@ export class AddDivisionPage extends BasePage {
     await this.imageCropper.accept();
   }
 
-  /** This method submits the form and waits for the outcome dialog. */
+  /** This method commits the form and waits for the outcome dialog. */
   async submit(): Promise<void> {
-    await this.addButton.click();
+    await this.submitButton.click();
     await this.dialog.waitFor({ timeout: 60_000 });
   }
 
-  /** This method abandons the form without saving. */
+  /** This method clears the division name, leaving a mandatory field empty. */
+  async clearName(): Promise<void> {
+    await this.nameField.fill('');
+  }
+
+  /** This method abandons a changed form, confirming that the changes are discarded. */
+  // Cancel does not leave straight away once something has been typed: it raises
+  // an "Are you sure?" warning, and answering it is part of cancelling. A form
+  // that has not been touched leaves without asking, so this is the path for one
+  // that has.
   async cancel(): Promise<void> {
     await this.cancelButton.click();
+    await this.discardChangesButton.click();
+    await expect(this.unsavedChangesWarning).toBeHidden({ timeout: 30_000 });
   }
 }

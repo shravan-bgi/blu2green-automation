@@ -6,13 +6,15 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings=0",
-    "test": "playwright test --project=chromium --grep-invert @quarantine --pass-with-no-tests",
-    "test:smoke": "playwright test --project=chromium --grep @smoke --grep-invert @quarantine --pass-with-no-tests",
-    "test:regression": "playwright test --project=chromium --grep @regression --grep-invert @quarantine --pass-with-no-tests",
+    "test": "playwright test --project=chromium --project=api --grep-invert @quarantine --pass-with-no-tests",
+    "test:api": "playwright test --project=api --grep-invert @quarantine --pass-with-no-tests",
+    "test:smoke": "playwright test --project=chromium --project=api --grep @smoke --grep-invert @quarantine --pass-with-no-tests",
+    "test:regression": "playwright test --project=chromium --project=api --grep @regression --grep-invert @quarantine --pass-with-no-tests",
     "test:cross-browser": "playwright test --project=firefox --project=webkit --grep-invert @quarantine --pass-with-no-tests",
     "test:quarantine": "playwright test --project=chromium --grep @quarantine --pass-with-no-tests",
     "test:debug": "playwright test --ui",
     "allure:generate": "allure generate allure-results",
+    "allure:share": "allure generate allure-results --config allurerc.share.mjs && node -e \"const fs=require('fs');const d=new Date().toISOString().slice(0,10);const o='allure-share/blu2green-e2e-'+d+'.html';fs.copyFileSync('allure-share/index.html',o);console.log('\\nShareable report (one file, opens anywhere): '+o)\"",
     "allure:open": "allure open allure-report",
     "allure:watch": "allure watch allure-results",
     "allure:run": "allure run -- playwright test",
@@ -34,6 +36,7 @@
     "eslint-plugin-jsdoc": "^64.3.3",
     "eslint-plugin-playwright": "^2.11.0",
     "mysql2": "^3.23.4",
-    "typescript-eslint": "^8.68.0"
+    "typescript-eslint": "^8.68.0",
+    "zod": "^4.5.4"
   }
 }

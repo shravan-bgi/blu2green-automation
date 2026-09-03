@@ -46,7 +46,7 @@ jobs:
   # Tier 2 — pull requests. Smoke only, so PR feedback stays inside the window a
   # reviewer will actually wait for.
   smoke:
-    name: Smoke (chromium)
+    name: Smoke (chromium + api)
     if: github.event_name == 'pull_request'
     needs: static
     runs-on: ubuntu-latest
@@ -64,6 +64,7 @@ jobs:
         run: >-
           npx playwright test
           --project=chromium
+          --project=api
           --grep @smoke
           --grep-invert @quarantine
           --shard=${{ matrix.shard }}/3
@@ -87,7 +88,7 @@ jobs:
 
   # Tier 3 — merge to main, nightly, and on demand. The whole suite.
   full:
-    name: Full suite (chromium)
+    name: Full suite (chromium + api)
     if: github.event_name != 'pull_request'
     needs: static
     runs-on: ubuntu-latest
@@ -106,6 +107,7 @@ jobs:
         run: >-
           npx playwright test
           --project=chromium
+          --project=api
           --grep-invert @quarantine
           --shard=${{ matrix.shard }}/3
           --fail-on-flaky-tests
@@ -176,6 +178,7 @@ jobs:
         run: >-
           npx playwright test
           --project=chromium
+          --project=api
           --grep @quarantine
           --pass-with-no-tests
 
@@ -279,6 +282,26 @@ jobs:
         with:
           name: allure-report
           path: allure-report/
+          retention-days: 30
+
+      # A second, self-contained build of the same results. The report above is a
+      # directory of files that fetch each other, so downloading it gets you
+      # something that only opens behind a web server. This one is a single HTML
+      # file that anyone can download and double-click — no checkout, no Node, no
+      # npm — which is what makes it the thing to send to someone outside the team.
+      # Through the npm script rather than the CLI, so the file arrives named
+      # blu2green-e2e-<date>.html. Whoever downloads this unzips it onto a
+      # desktop, and "index.html" is not a name anyone can find again.
+      - name: Generate the shareable single-file report
+        if: ${{ !cancelled() }}
+        run: npm run allure:share
+
+      - name: Upload the shareable report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: allure-report-single-file
+          path: allure-share/blu2green-e2e-*.html
           retention-days: 30
 
       - name: Upload Allure history
